@@ -29,7 +29,7 @@ const xpCooldowns = new Map();
 
 async function getUserLevel(userId) {
   const { data } = await supabase.from("levels").select("*").eq("user_id", userId).single();
-  return data || { user_id: userId, xp: 0, level: 0, coins: 0, total_xp: 0 };
+  return data || { user_id: userId, xp: 0, level: 1, coins: 0, total_xp: 0 };  // START BEI LEVEL 1
 }
 
 async function saveUserLevel(userId, xp, level, coins, totalXp) {
@@ -55,7 +55,7 @@ function getXpForLevel(level) {
 }
 
 function getLevelFromTotalXp(totalXp) {
-  let level = 0;
+  let level = 1;  // START BEI 1
   let xpNeeded = 0;
   while (level < 100 && totalXp >= xpNeeded + getXpForLevel(level + 1)) {
     xpNeeded += getXpForLevel(level + 1);
