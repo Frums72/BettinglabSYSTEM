@@ -69,13 +69,22 @@ async function generateWeeklyQuests() {
 }
 
 async function postDailyQuests(client) {
+  console.log("📋 Generiere Daily Quests...");
   await generateDailyQuests();
   const today = new Date().toISOString().split("T")[0];
   const { data: quests } = await supabase.from("daily_quests").select("*").eq("date", today);
-  if (!quests || quests.length === 0) return;
+  console.log(`📋 Daily Quests geladen: ${quests ? quests.length : 0}`);
+  if (!quests || quests.length === 0) {
+    console.log("❌ Keine Daily Quests gefunden!");
+    return;
+  }
   
   const ch = client.channels.cache.get(DAILY_CHANNEL) || await client.channels.fetch(DAILY_CHANNEL);
-  if (!ch) return;
+  if (!ch) {
+    console.log("❌ Daily Quest Channel nicht gefunden!");
+    return;
+  }
+  console.log("✅ Poste Daily Quests...");
   
   let desc = "**📋 Tägliche Aufgaben**\n\nErledige Aufgaben und hole dir Belohnungen ab!\n\n";
   const rows = [];
@@ -101,6 +110,7 @@ async function postDailyQuests(client) {
 }
 
 async function postWeeklyQuests(client) {
+  console.log("📅 Generiere Weekly Quests...");
   await generateWeeklyQuests();
   const now = new Date();
   const mon = new Date(now);
@@ -108,10 +118,18 @@ async function postWeeklyQuests(client) {
   const ws = mon.toISOString().split("T")[0];
   
   const { data: quests } = await supabase.from("weekly_quests").select("*").eq("week_start", ws);
-  if (!quests || quests.length === 0) return;
+  console.log(`📅 Weekly Quests geladen: ${quests ? quests.length : 0}`);
+  if (!quests || quests.length === 0) {
+    console.log("❌ Keine Weekly Quests gefunden!");
+    return;
+  }
   
   const ch = client.channels.cache.get(DAILY_CHANNEL) || await client.channels.fetch(DAILY_CHANNEL);
-  if (!ch) return;
+  if (!ch) {
+    console.log("❌ Weekly Quest Channel nicht gefunden!");
+    return;
+  }
+  console.log("✅ Poste Weekly Quests...");
   
   let desc = "**📅 Wöchentliche Aufgaben (Montag-Montag)**\n\nErledige Aufgaben und hole dir Belohnungen ab!\n\n";
   const rows = [];
