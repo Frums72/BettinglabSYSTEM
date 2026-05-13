@@ -75,12 +75,12 @@ async function handleDailyButton(i) {
   let expectedDay = 1;
   if (last) {
     const diff = (now - last) / 1000 / 60 / 60;
-    if (diff < 24) return i.reply({ content: "❌ Du hast heute bereits deine Belohnung abgeholt!", ephemeral: true });
+    if (diff < 24) return i.reply({ content: "❌ Du hast heute bereits deine Belohnung abgeholt!", flags: 64 });
     if (diff >= 48) expectedDay = 1;
-    else expectedDay = (data.streak % 7) + 1;
+    else expectedDay = data.streak === 0 ? 1 : (data.streak % 7) + 1;
   }
   
-  if (day !== expectedDay) return i.reply({ content: `❌ Das ist nicht dein Tag! Du bist bei **Tag ${expectedDay}**!`, ephemeral: true });
+  if (day !== expectedDay) return i.reply({ content: `❌ Das ist nicht dein Tag! Du bist bei **Tag ${expectedDay}**!`, flags: 64 });
   
   const reward = DAILY_REWARDS[day - 1];
   const newStreak = day === 7 ? 0 : day;
