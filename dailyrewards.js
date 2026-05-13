@@ -34,14 +34,16 @@ async function postDailyRewards(client) {
   }
   
   const rows = [];
+  const row = new ActionRowBuilder();
   for (let i = 0; i < 7; i++) {
-    const btn = new ButtonBuilder()
-      .setCustomId(`daily_claim_${i + 1}`)
-      .setLabel(`Tag ${i + 1}`)
-      .setStyle(ButtonStyle.Primary);
-    if (i % 5 === 0) rows.push(new ActionRowBuilder().addComponents(btn));
-    else rows[rows.length - 1].addComponents(btn);
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`daily_claim_${i + 1}`)
+        .setLabel(`Tag ${i + 1}`)
+        .setStyle(ButtonStyle.Primary)
+    );
   }
+  rows.push(row);
   
   const embed = new EmbedBuilder()
     .setColor(0xF1C40F)
