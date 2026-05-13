@@ -32,17 +32,26 @@ async function generateDailyQuests() {
     
     console.log("🔨 Generiere neue Daily Quests...");
     const types = Object.keys(QUEST_TYPES);
+    const used = new Set();
     const quests = [];
     
+    // 3 light - keine Duplikate
     for (let i = 0; i < 3; i++) {
-      const t = types[Math.floor(Math.random() * types.length)];
+      let t;
+      do { t = types[Math.floor(Math.random() * types.length)]; } while (used.has(t));
+      used.add(t);
       quests.push({ date: today, quest_type: t, difficulty: "light", requirement: QUEST_TYPES[t].l, reward_coins: 5, reward_xp: 25, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].l}x` });
     }
     
-    const mt = types[Math.floor(Math.random() * types.length)];
+    // 1 medium
+    let mt;
+    do { mt = types[Math.floor(Math.random() * types.length)]; } while (used.has(mt));
+    used.add(mt);
     quests.push({ date: today, quest_type: mt, difficulty: "medium", requirement: QUEST_TYPES[mt].m, reward_coins: 10, reward_xp: 50, description: `${QUEST_TYPES[mt].name}: ${QUEST_TYPES[mt].m}x` });
     
-    const ht = types[Math.floor(Math.random() * types.length)];
+    // 1 hard
+    let ht;
+    do { ht = types[Math.floor(Math.random() * types.length)]; } while (used.has(ht));
     quests.push({ date: today, quest_type: ht, difficulty: "hard", requirement: QUEST_TYPES[ht].h, reward_coins: 20, reward_xp: 100, description: `${QUEST_TYPES[ht].name}: ${QUEST_TYPES[ht].h}x` });
     
     const { error: insertError } = await supabase.from("daily_quests").insert(quests);
@@ -76,20 +85,30 @@ async function generateWeeklyQuests() {
     
     console.log("🔨 Generiere neue Weekly Quests...");
     const types = Object.keys(QUEST_TYPES);
+    const used = new Set();
     const quests = [];
     
+    // 5 light - keine Duplikate
     for (let i = 0; i < 5; i++) {
-      const t = types[Math.floor(Math.random() * types.length)];
+      let t;
+      do { t = types[Math.floor(Math.random() * types.length)]; } while (used.has(`l_${t}`));
+      used.add(`l_${t}`);
       quests.push({ week_start: ws, quest_type: t, difficulty: "light", requirement: QUEST_TYPES[t].wl, reward_coins: 10, reward_xp: 50, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wl}x` });
     }
     
+    // 3 medium
     for (let i = 0; i < 3; i++) {
-      const t = types[Math.floor(Math.random() * types.length)];
+      let t;
+      do { t = types[Math.floor(Math.random() * types.length)]; } while (used.has(`m_${t}`));
+      used.add(`m_${t}`);
       quests.push({ week_start: ws, quest_type: t, difficulty: "medium", requirement: QUEST_TYPES[t].wm, reward_coins: 25, reward_xp: 100, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wm}x` });
     }
     
+    // 2 hard
     for (let i = 0; i < 2; i++) {
-      const t = types[Math.floor(Math.random() * types.length)];
+      let t;
+      do { t = types[Math.floor(Math.random() * types.length)]; } while (used.has(`h_${t}`));
+      used.add(`h_${t}`);
       quests.push({ week_start: ws, quest_type: t, difficulty: "hard", requirement: QUEST_TYPES[t].wh, reward_coins: 50, reward_xp: 250, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wh}x` });
     }
     
@@ -122,14 +141,20 @@ async function postDailyQuests(client) {
   }
   console.log("✅ Poste Daily Quests...");
   
-  let desc = "**📋 Tägliche Aufgaben**\n\nErledige Aufgaben und hole dir Belohnungen ab!\n\n";
+  let desc = "**📋 Tägliche Aufgaben**\n\nErledige Aufgaben durch Aktivität auf dem Server!\n*Updates alle 3 Minuten automatisch.*\n\n";
   const rows = [];
   
   for (const q of quests) {
-    const diff = q.difficulty === "light" ? "🟢 Leicht" : q.difficulty === "medium" ? "🟡 Mittel" : "🔴 Schwer";
-    desc += `${diff}: **${q.description}**\nBelohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
+    const emoji = q.difficulty === "light" ? "🟢" : q.difficulty === "medium" ? "🟡" : "🔴";
+    desc += `${emoji} **${q.description}**\n`;
+    desc += `└ Belohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
     
-    const btn = new ButtonBuilder().setCustomId(`claim_daily_${q.id}`).setLabel(`${q.description.split(":")[0]}`).setStyle(ButtonStyle.Secondary).setDisabled(true);
+    const btn = new ButtonBuilder()
+      .setCustomId(`claim_daily_${q.id}`)
+      .setLabel(q.description.split(":")[0])
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(true);
+    
     if (rows.length === 0) rows.push(new ActionRowBuilder().addComponents(btn));
     else if (rows[rows.length - 1].components.length < 5) rows[rows.length - 1].addComponents(btn);
     else rows.push(new ActionRowBuilder().addComponents(btn));
@@ -138,11 +163,19 @@ async function postDailyQuests(client) {
   const bonusBtn = new ButtonBuilder().setCustomId("claim_daily_bonus").setLabel("🎁 BONUS").setStyle(ButtonStyle.Primary).setDisabled(true);
   rows.push(new ActionRowBuilder().addComponents(bonusBtn));
   
-  desc += "**🎁 Bonus bei allen:** 15 Coins + 100 XP + 10% Boost (2h)";
+  desc += "**🎁 Bonus:** 15 Coins + 100 XP + 10% Boost (2h)";
   
-  const embed = new EmbedBuilder().setColor(0x5865F2).setTitle("📋 Daily Quests").setDescription(desc);
-  const msg = await ch.send({ content: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", embeds: [embed], components: rows });
+  const embed = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle("📋 Daily Quests")
+    .setDescription(desc)
+    .setFooter({ text: "Grüne Buttons = Abholbereit!" });
+  
+  const msg = await ch.send({ embeds: [embed], components: rows });
   dailyMessageId = msg.id;
+  
+  // Auto-Update alle 3 Min
+  setInterval(() => updateQuestDisplay(client, "daily"), 180000);
 }
 
 async function postWeeklyQuests(client) {
@@ -167,14 +200,20 @@ async function postWeeklyQuests(client) {
   }
   console.log("✅ Poste Weekly Quests...");
   
-  let desc = "**📅 Wöchentliche Aufgaben (Montag-Montag)**\n\nErledige Aufgaben und hole dir Belohnungen ab!\n\n";
+  let desc = "**📅 Wöchentliche Aufgaben (Montag-Montag)**\n\nErledige Aufgaben durch Aktivität!\n*Updates alle 3 Minuten automatisch.*\n\n";
   const rows = [];
   
   for (const q of quests) {
-    const diff = q.difficulty === "light" ? "🟢 Leicht" : q.difficulty === "medium" ? "🟡 Mittel" : "🔴 Schwer";
-    desc += `${diff}: **${q.description}**\nBelohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
+    const emoji = q.difficulty === "light" ? "🟢" : q.difficulty === "medium" ? "🟡" : "🔴";
+    desc += `${emoji} **${q.description}**\n`;
+    desc += `└ Belohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
     
-    const btn = new ButtonBuilder().setCustomId(`claim_weekly_${q.id}`).setLabel(`${q.description.split(":")[0]}`).setStyle(ButtonStyle.Secondary).setDisabled(true);
+    const btn = new ButtonBuilder()
+      .setCustomId(`claim_weekly_${q.id}`)
+      .setLabel(q.description.split(":")[0])
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(true);
+    
     if (rows.length === 0) rows.push(new ActionRowBuilder().addComponents(btn));
     else if (rows[rows.length - 1].components.length < 5) rows[rows.length - 1].addComponents(btn);
     else rows.push(new ActionRowBuilder().addComponents(btn));
@@ -183,11 +222,19 @@ async function postWeeklyQuests(client) {
   const bonusBtn = new ButtonBuilder().setCustomId("claim_weekly_bonus").setLabel("🎁 BONUS").setStyle(ButtonStyle.Primary).setDisabled(true);
   rows.push(new ActionRowBuilder().addComponents(bonusBtn));
   
-  desc += "**🎁 Bonus bei allen:** 50 Coins + 500 XP + 25% Boost (12h)";
+  desc += "**🎁 Bonus:** 50 Coins + 500 XP + 25% Boost (12h)";
   
-  const embed = new EmbedBuilder().setColor(0x9B59B6).setTitle("📅 Weekly Quests").setDescription(desc);
-  const msg = await ch.send({ content: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", embeds: [embed], components: rows });
+  const embed = new EmbedBuilder()
+    .setColor(0x9B59B6)
+    .setTitle("📅 Weekly Quests")
+    .setDescription(desc)
+    .setFooter({ text: "Grüne Buttons = Abholbereit!" });
+  
+  const msg = await ch.send({ embeds: [embed], components: rows });
   weeklyMessageId = msg.id;
+  
+  // Auto-Update alle 3 Min
+  setInterval(() => updateQuestDisplay(client, "weekly"), 180000);
 }
 
 async function updateQuestDisplay(client, type) {
@@ -203,30 +250,38 @@ async function updateQuestDisplay(client, type) {
     if (type === "daily") {
       const today = new Date().toISOString().split("T")[0];
       const { data: quests } = await supabase.from("daily_quests").select("*").eq("date", today);
+      if (!quests) return;
       
-      let desc = "**📋 Tägliche Aufgaben**\n\nErledige Aufgaben und hole dir Belohnungen ab!\n\n";
+      let desc = "**📋 Tägliche Aufgaben**\n\nErledige Aufgaben durch Aktivität auf dem Server!\n*Updates alle 3 Minuten automatisch.*\n\n";
       const rows = [];
-      let allDone = 0;
       
       for (const q of quests) {
         const { data: progs } = await supabase.from("daily_quest_progress").select("*").eq("quest_id", q.id);
-        const completedCount = progs ? progs.filter(p => p.completed).length : 0;
+        const completedUsers = progs ? progs.filter(p => p.completed && !p.claimed).length : 0;
         
-        const diff = q.difficulty === "light" ? "🟢" : q.difficulty === "medium" ? "🟡" : "🔴";
-        desc += `${diff} **${q.description}** (${completedCount} User erledigt)\nBelohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
+        const emoji = q.difficulty === "light" ? "🟢" : q.difficulty === "medium" ? "🟡" : "🔴";
+        desc += `${emoji} **${q.description}**`;
+        if (completedUsers > 0) desc += ` *(${completedUsers} bereit)*`;
+        desc += `\n└ Belohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
         
-        const btn = new ButtonBuilder().setCustomId(`claim_daily_${q.id}`).setLabel(q.description.split(":")[0]).setStyle(ButtonStyle.Secondary);
+        const hasCompleted = completedUsers > 0;
+        const btn = new ButtonBuilder()
+          .setCustomId(`claim_daily_${q.id}`)
+          .setLabel(q.description.split(":")[0])
+          .setStyle(hasCompleted ? ButtonStyle.Success : ButtonStyle.Secondary)
+          .setDisabled(!hasCompleted);
+        
         if (rows.length === 0) rows.push(new ActionRowBuilder().addComponents(btn));
         else if (rows[rows.length - 1].components.length < 5) rows[rows.length - 1].addComponents(btn);
         else rows.push(new ActionRowBuilder().addComponents(btn));
       }
       
-      const bonusBtn = new ButtonBuilder().setCustomId("claim_daily_bonus").setLabel("🎁 BONUS").setStyle(ButtonStyle.Primary);
+      const bonusBtn = new ButtonBuilder().setCustomId("claim_daily_bonus").setLabel("🎁 BONUS").setStyle(ButtonStyle.Primary).setDisabled(true);
       rows.push(new ActionRowBuilder().addComponents(bonusBtn));
       
-      desc += "**🎁 Bonus bei allen:** 15 Coins + 100 XP + 10% Boost (2h)";
+      desc += "**🎁 Bonus:** 15 Coins + 100 XP + 10% Boost (2h)";
       
-      const embed = new EmbedBuilder().setColor(0x5865F2).setTitle("📋 Daily Quests").setDescription(desc);
+      const embed = new EmbedBuilder().setColor(0x5865F2).setTitle("📋 Daily Quests").setDescription(desc).setFooter({ text: "Grüne Buttons = Abholbereit!" });
       await msg.edit({ embeds: [embed], components: rows });
     } else {
       const now = new Date();
@@ -235,32 +290,43 @@ async function updateQuestDisplay(client, type) {
       const ws = mon.toISOString().split("T")[0];
       
       const { data: quests } = await supabase.from("weekly_quests").select("*").eq("week_start", ws);
+      if (!quests) return;
       
-      let desc = "**📅 Wöchentliche Aufgaben (Montag-Montag)**\n\nErledige Aufgaben und hole dir Belohnungen ab!\n\n";
+      let desc = "**📅 Wöchentliche Aufgaben (Montag-Montag)**\n\nErledige Aufgaben durch Aktivität!\n*Updates alle 3 Minuten automatisch.*\n\n";
       const rows = [];
       
       for (const q of quests) {
         const { data: progs } = await supabase.from("weekly_quest_progress").select("*").eq("quest_id", q.id);
-        const completedCount = progs ? progs.filter(p => p.completed).length : 0;
+        const completedUsers = progs ? progs.filter(p => p.completed && !p.claimed).length : 0;
         
-        const diff = q.difficulty === "light" ? "🟢" : q.difficulty === "medium" ? "🟡" : "🔴";
-        desc += `${diff} **${q.description}** (${completedCount} User erledigt)\nBelohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
+        const emoji = q.difficulty === "light" ? "🟢" : q.difficulty === "medium" ? "🟡" : "🔴";
+        desc += `${emoji} **${q.description}**`;
+        if (completedUsers > 0) desc += ` *(${completedUsers} bereit)*`;
+        desc += `\n└ Belohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
         
-        const btn = new ButtonBuilder().setCustomId(`claim_weekly_${q.id}`).setLabel(q.description.split(":")[0]).setStyle(ButtonStyle.Secondary);
+        const hasCompleted = completedUsers > 0;
+        const btn = new ButtonBuilder()
+          .setCustomId(`claim_weekly_${q.id}`)
+          .setLabel(q.description.split(":")[0])
+          .setStyle(hasCompleted ? ButtonStyle.Success : ButtonStyle.Secondary)
+          .setDisabled(!hasCompleted);
+        
         if (rows.length === 0) rows.push(new ActionRowBuilder().addComponents(btn));
         else if (rows[rows.length - 1].components.length < 5) rows[rows.length - 1].addComponents(btn);
         else rows.push(new ActionRowBuilder().addComponents(btn));
       }
       
-      const bonusBtn = new ButtonBuilder().setCustomId("claim_weekly_bonus").setLabel("🎁 BONUS").setStyle(ButtonStyle.Primary);
+      const bonusBtn = new ButtonBuilder().setCustomId("claim_weekly_bonus").setLabel("🎁 BONUS").setStyle(ButtonStyle.Primary).setDisabled(true);
       rows.push(new ActionRowBuilder().addComponents(bonusBtn));
       
-      desc += "**🎁 Bonus bei allen:** 50 Coins + 500 XP + 25% Boost (12h)";
+      desc += "**🎁 Bonus:** 50 Coins + 500 XP + 25% Boost (12h)";
       
-      const embed = new EmbedBuilder().setColor(0x9B59B6).setTitle("📅 Weekly Quests").setDescription(desc);
+      const embed = new EmbedBuilder().setColor(0x9B59B6).setTitle("📅 Weekly Quests").setDescription(desc).setFooter({ text: "Grüne Buttons = Abholbereit!" });
       await msg.edit({ embeds: [embed], components: rows });
     }
-  } catch(e) {}
+  } catch(e) {
+    console.error("Update Error:", e);
+  }
 }
 
 async function trackProgress(userId, type, amount = 1) {
@@ -311,7 +377,7 @@ async function handleQuestClaim(i, client) {
     const { data: q } = await supabase.from(table).select("*").eq("id", questId).single();
     const { data: p } = await supabase.from(pTable).select("*").eq("user_id", i.user.id).eq("quest_id", questId).single();
     
-    if (!p || !p.completed || p.claimed) return i.reply({ content: "❌ Quest nicht verfügbar oder bereits abgeholt!", ephemeral: true });
+    if (!p || !p.completed || p.claimed) return i.reply({ content: "❌ Quest nicht verfügbar oder bereits abgeholt!", flags: 64 });
     
     await supabase.from(pTable).update({ claimed: true }).eq("user_id", i.user.id).eq("quest_id", questId);
     
@@ -322,7 +388,7 @@ async function handleQuestClaim(i, client) {
     
     const embed = new EmbedBuilder().setColor(0x57F287).setTitle("✅ Quest abgeschlossen!").setDescription(`🪙 **+${q.reward_coins} Coins**\n✨ **+${q.reward_xp} XP**`);
     await updateQuestDisplay(client, type);
-    return i.reply({ embeds: [embed], ephemeral: true });
+    return i.reply({ embeds: [embed], flags: 64 });
   } else {
     const bonus = type === "daily" ? { coins: 15, xp: 100, boost: 10, h: 2 } : { coins: 50, xp: 500, boost: 25, h: 12 };
     
@@ -337,7 +403,7 @@ async function handleQuestClaim(i, client) {
     const { data: userP } = await supabase.from(pTable).select("*").eq("user_id", i.user.id).in("quest_id", allQ.map(q => q.id));
     
     if (!userP || userP.length !== allQ.length || !userP.every(p => p.completed && p.claimed)) {
-      return i.reply({ content: "❌ Du musst erst alle Quests abholen!", ephemeral: true });
+      return i.reply({ content: "❌ Du musst erst alle Quests abholen!", flags: 64 });
     }
     
     const { data: lvl } = await supabase.from("levels").select("*").eq("user_id", i.user.id).single();
@@ -359,7 +425,7 @@ async function handleQuestClaim(i, client) {
       if (ch) await ch.send({ content: `🎊 <@${i.user.id}> hat alle ${type === "daily" ? "Daily" : "Weekly"} Quests abgeschlossen!`, embeds: [embed] });
     } catch(e) {}
     
-    return i.reply({ embeds: [embed], ephemeral: true });
+    return i.reply({ embeds: [embed], flags: 64 });
   }
 }
 
