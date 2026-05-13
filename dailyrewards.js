@@ -34,16 +34,28 @@ async function postDailyRewards(client) {
   }
   
   const rows = [];
-  const row = new ActionRowBuilder();
-  for (let i = 0; i < 7; i++) {
-    row.addComponents(
+  const row1 = new ActionRowBuilder();
+  const row2 = new ActionRowBuilder();
+  
+  for (let i = 0; i < 4; i++) {
+    row1.addComponents(
       new ButtonBuilder()
         .setCustomId(`daily_claim_${i + 1}`)
         .setLabel(`Tag ${i + 1}`)
         .setStyle(ButtonStyle.Primary)
     );
   }
-  rows.push(row);
+  
+  for (let i = 4; i < 7; i++) {
+    row2.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`daily_claim_${i + 1}`)
+        .setLabel(`Tag ${i + 1}`)
+        .setStyle(ButtonStyle.Primary)
+    );
+  }
+  
+  rows.push(row1, row2);
   
   const embed = new EmbedBuilder()
     .setColor(0xF1C40F)
