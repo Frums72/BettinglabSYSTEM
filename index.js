@@ -12,8 +12,10 @@ const { log } = require("./logger");
 const { updateStats } = require("./stats");
 const { startEmbedBuilder, handleEmbedBuilder } = require("./embedbuilder");
 const { handleMessage: handleAutomod } = require("./automod");
-const { handleMessage: handleLevelMessage, handleCommand: handleLevelCommand } = require("./levels");
+const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand } = require("./levels");
 const { handleCommand: handleModCommand } = require("./moderation");
+const { postDailyRewards, handleDailyButton } = require("./dailyrewards");
+const { postDailyQuests, postWeeklyQuests, handleQuestClaim } = require("./quests");
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -135,6 +137,11 @@ client.once("clientReady", async function() {
     await restoreTickets(guild, client);
   }
   
+  // Auto-Post Daily/Weekly
+  await postDailyRewards(client);
+  await postDailyQuests(client);
+  await postWeeklyQuests(client);
+  
   log(client, "SUCCESS", "Bot gestartet", "Tag: " + client.user.tag);
 });
 
@@ -192,11 +199,33 @@ client.on("interactionCreate", async function(i) {
     const ebHandled = await handleEmbedBuilder(i);
     if (ebHandled !== false) return;
     
+    // Daily Rewards Buttons
+    if (i.customId && i.customId.startsWith("daily_claim_")) {
+      await handleDailyButton(i);
+      return;
+    }
+    
+    // Quest Claim Buttons
+    if (i.customId && (i.customId.startsWith("claim_daily_") || i.customId.startsWith("claim_weekly_"))) {
+      await handleQuestClaim(i, client);
+      return;
+    }
+    
     // Ticket Interactions
     await handleTicketInteraction(i, client);
   } catch (e) {
     console.error("Interaction Fehler:", e);
     log(client, "ERROR", "Interaction Fehler", e && e.message ? e.message : String(e));
+  }
+});
+
+// Reaction Listener
+client.on("messageReactionAdd", async function(reaction, user) {
+  try {
+    if (reaction.partial) await reaction.fetch();
+    await handleReaction(reaction, user, client);
+  } catch(e) {
+    console.error("Reaction Fehler:", e);
   }
 });
 
