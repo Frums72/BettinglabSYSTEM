@@ -242,7 +242,7 @@ async function betlabcf(i) {
   if(won)await trackProgress(i.user.id,"coins_earn",amt);
   
   const e=new EmbedBuilder().setColor(won?0x57F287:0xED4245).setTitle(won?"🎉 GEWONNEN!":"💔 VERLOREN!")
-    .setDescription(`**Einsatz:** ${amt} Coins\n\n${won?`✅ +${amt} Coins!${bonusXP>0?`\n🎁 **Bonus:** +${bonusXP} XP!`:''}``❌ -${amt} Coins!`}\n\n**Balance:** ${newC} Coins`)
+    .setDescription(`**Einsatz:** ${amt} Coins\n\n${won?`✅ +${amt} Coins!${bonusXP>0?`\n🎁 **Bonus:** +${bonusXP} XP!`:''}`:`❌ -${amt} Coins!`}\n\n**Balance:** ${newC} Coins`)
     .setThumbnail(i.user.displayAvatarURL()).setImage(IMAGE);
   
   log(i.client,"INFO","Coinflip",`User: ${i.user.tag}\nEinsatz: ${amt}\nErgebnis: ${won?"WIN":"LOSS"}${bonusXP>0?`\nBonus: ${bonusXP} XP`:''}\nBalance: ${newC}`,i.user);
