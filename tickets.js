@@ -21,34 +21,84 @@ const tickets = new Map();
 const userTickets = new Map();
 const PRIORITY_LEVELS = ["keine", "Low", "Medium", "High"];
 
+// FIX: Tickets nach Bot-Restart wiederherstellen
+async function restoreTicketsOnStartup(guild, client) {
+  try {
+    const category = guild.channels.cache.get(CATEGORY_ID);
+    if (!category || category.type !== ChannelType.GuildCategory) return;
+
+    let restored = 0;
+    category.children.cache.forEach(function(channel) {
+      // Nur Text-Channels die mit "ticket-" beginnen
+      if (channel.type !== ChannelType.GuildText) return;
+      if (!channel.name.startsWith("ticket-")) return;
+
+      // Creator aus Permissions extrahieren
+      const permissions = channel.permissionOverwrites.cache;
+      let creatorId = null;
+
+      permissions.forEach(function(perm, id) {
+        // Nicht die Guild-ID oder Support-Role
+        if (id === guild.id || id === SUPPORT_ROLE_ID) return;
+        // User mit ViewChannel Permission = Creator
+        if (perm.allow.has(PermissionFlagsBits.ViewChannel)) {
+          creatorId = id;
+        }
+      });
+
+      if (!creatorId) return;
+
+      // In Maps eintragen
+      userTickets.set(creatorId, channel.id);
+      tickets.set(channel.id, {
+        category: "Unknown",
+        creator: creatorId,
+        claimedBy: null,
+        priority: "keine",
+        messageId: null,
+        createdAt: channel.createdTimestamp || Date.now()
+      });
+
+      restored++;
+    });
+
+    if (restored > 0) {
+      log(client, "INFO", "Tickets wiederhergestellt",
+        restored + " offene Tickets nach Bot-Restart wiederhergestellt"
+      );
+    }
+  } catch (e) {
+    log(client, "ERROR", "Ticket-Restore fehlgeschlagen", e.message);
+  }
+}
 
 async function sendPanel(channel) {
   const embed = new EmbedBuilder()
     .setColor(COLOR)
-    .setTitle("\uD83C\uDFAB Access and Support")
+    .setTitle("🎫 Access and Support")
     .setDescription(
-      "Bitte w\u00E4hle die richtige Kategorie f\u00FCr dein Ticket aus.\n\n" +
-      "\uD83D\uDCE5 **Allgemeiner Support**\n" +
-      "Allgemeine Fragen die nicht \u00F6ffentlich beantwortet werden k\u00F6nnen.\n\n" +
-      "\uD83D\uDCE2 **Promo**\n" +
-      "Du m\u00F6chtest deine Promo anfordern? (Zugang zum Discord, Promo-Aktion..)\n\n" +
-      "\uD83D\uDCDD **Bewerbung**\n" +
-      "Derzeit l\u00E4uft eine Bewerbungsphase? Hier kannst du dich bewerben!\n\n" +
-      "\uD83D\uDC1E **Bug Report**\n" +
+      "Bitte wähle die richtige Kategorie für dein Ticket aus.\n\n" +
+      "📥 **Allgemeiner Support**\n" +
+      "Allgemeine Fragen die nicht öffentlich beantwortet werden können.\n\n" +
+      "📢 **Promo**\n" +
+      "Du möchtest deine Promo anfordern? (Zugang zum Discord, Promo-Aktion..)\n\n" +
+      "📝 **Bewerbung**\n" +
+      "Derzeit läuft eine Bewerbungsphase? Hier kannst du dich bewerben!\n\n" +
+      "🐞 **Bug Report**\n" +
       "Du hast einen Fehler gefunden oder etwas funktioniert nicht?\nHier kannst du es direkt ans Team melden!\n\n" +
-      "\u26A0\uFE0F **Bitte beachte:**\n" +
-      "Tickets werden schnellstm\u00F6glich bearbeitet, wir bitten um Geduld!"
+      "⚠️ **Bitte beachte:**\n" +
+      "Tickets werden schnellstmöglich bearbeitet, wir bitten um Geduld!"
     )
     .setImage(IMAGE);
 
   const menu = new StringSelectMenuBuilder()
     .setCustomId("ticket_select")
-    .setPlaceholder("Kategorie ausw\u00E4hlen")
+    .setPlaceholder("Kategorie auswählen")
     .addOptions([
-      { label: "Support",    value: "Support",    emoji: "\uD83D\uDCE5" },
-      { label: "Promo",      value: "Promo",      emoji: "\uD83D\uDCE2" },
-      { label: "Bewerbung",  value: "Bewerbung",  emoji: "\uD83D\uDCDD" },
-      { label: "Bug Report", value: "Bug",        emoji: "\uD83D\uDC1E" }
+      { label: "Support",    value: "Support",    emoji: "📥" },
+      { label: "Promo",      value: "Promo",      emoji: "📢" },
+      { label: "Bewerbung",  value: "Bewerbung",  emoji: "📝" },
+      { label: "Bug Report", value: "Bug",        emoji: "🐞" }
     ]);
 
   await channel.send({
@@ -63,10 +113,10 @@ function buildTicketEmbed(d) {
     .setColor(COLOR)
     .setDescription(
       "<@" + d.creator + ">, Willkommen im Support!\n\n" +
-      "\uD83D\uDC64 Bearbeiter: " + (d.claimedBy ? "<@" + d.claimedBy + ">" : "noch niemand") + "\n" +
-      "\uD83D\uDCC1 Kategorie: " + d.category + "\n" +
-      "\uD83D\uDD5E Zeitpunkt: " + created + "\n\n" +
-      "\uD83D\uDCAC Bitte beschreibe dein Anliegen so genau wie m\u00F6glich. Jemand aus unserem Support Team wird dir schnellstm\u00F6glich weiterhelfen!"
+      "👤 Bearbeiter: " + (d.claimedBy ? "<@" + d.claimedBy + ">" : "noch niemand") + "\n" +
+      "📁 Kategorie: " + d.category + "\n" +
+      "🕞 Zeitpunkt: " + created + "\n\n" +
+      "💬 Bitte beschreibe dein Anliegen so genau wie möglich. Jemand aus unserem Support Team wird dir schnellstmöglich weiterhelfen!"
     )
     .setImage(IMAGE);
 }
@@ -98,7 +148,7 @@ async function handleInteraction(i, client) {
       const existingChannel = i.guild.channels.cache.get(existingChannelId);
       if (existingChannel) {
         return i.editReply({
-          content: "Du hast bereits ein offenes Ticket: " + existingChannel.toString() + "\nBitte schlie\u00DFe es zuerst bevor du ein neues er\u00F6ffnest."
+          content: "Du hast bereits ein offenes Ticket: " + existingChannel.toString() + "\nBitte schließe es zuerst bevor du ein neues eröffnest."
         });
       } else {
         // Channel existiert nicht mehr, Eintrag entfernen
@@ -154,30 +204,42 @@ async function handleInteraction(i, client) {
   // CLAIM - nur Team
   if (i.customId === "claim_ticket") {
     if (!i.member.roles.cache.has(SUPPORT_ROLE_ID)) {
+      log(client, "WARN", "Unberechtigter Zugriff",
+        "User: " + i.user.tag + " versuchte Ticket zu claimen ohne Support-Rolle",
+        i.user
+      );
       return i.reply({ content: "Nur das Support-Team kann Tickets claimen.", flags: 64 });
     }
     d.claimedBy = i.user.id;
     await updateTicket(i.channel, d);
     log(client, "TICKET", "Ticket geclaimed", "Channel: " + i.channel.name, i.user);
-    return i.reply({ content: "\uD83D\uDE4B Ticket \u00FCbernommen von <@" + i.user.id + ">" });
+    return i.reply({ content: "🙋 Ticket übernommen von <@" + i.user.id + ">" });
   }
 
   // PRIORITY - nur Team
   if (i.customId === "priority_ticket") {
     if (!i.member.roles.cache.has(SUPPORT_ROLE_ID)) {
-      return i.reply({ content: "Nur das Support-Team kann die Priority \u00E4ndern.", flags: 64 });
+      log(client, "WARN", "Unberechtigter Zugriff",
+        "User: " + i.user.tag + " versuchte Priority zu ändern ohne Support-Rolle",
+        i.user
+      );
+      return i.reply({ content: "Nur das Support-Team kann die Priority ändern.", flags: 64 });
     }
     const idx = PRIORITY_LEVELS.indexOf(d.priority);
     d.priority = PRIORITY_LEVELS[(idx + 1) % PRIORITY_LEVELS.length];
     await updateTicket(i.channel, d);
-    log(client, "TICKET", "Priority ge\u00E4ndert", "Priority: " + d.priority, i.user);
+    log(client, "TICKET", "Priority geändert", "Priority: " + d.priority, i.user);
     return i.reply({ content: "Priority: " + d.priority, flags: 64 });
   }
 
   // CLOSE - nur Team
   if (i.customId === "close_ticket") {
     if (!i.member.roles.cache.has(SUPPORT_ROLE_ID)) {
-      return i.reply({ content: "Nur das Support-Team kann Tickets schlie\u00DFen.", flags: 64 });
+      log(client, "WARN", "Unberechtigter Zugriff",
+        "User: " + i.user.tag + " versuchte Ticket zu schließen ohne Support-Rolle",
+        i.user
+      );
+      return i.reply({ content: "Nur das Support-Team kann Tickets schließen.", flags: 64 });
     }
 
     await i.deferUpdate();
@@ -214,19 +276,23 @@ async function handleInteraction(i, client) {
         embeds: [
           new EmbedBuilder()
             .setColor(COLOR)
-            .setTitle("\uD83D\uDD12 Ticket geschlossen")
+            .setTitle("🔒 Ticket geschlossen")
             .setDescription(
               "Dein Ticket wurde erfolgreich geschlossen.\n\n" +
-              "\uD83D\uDC64 Geschlossen von: " + closedBy + "\n" +
-              "\uD83D\uDCC1 Kategorie: " + d.category + "\n" +
-              "\uD83D\uDD5E Zeitpunkt: " + closedAt + "\n\n" +
-              "\uD83D\uDCAC Solltest du weitere Fragen haben, kannst du jederzeit ein neues Ticket erstellen."
+              "👤 Geschlossen von: " + closedBy + "\n" +
+              "📁 Kategorie: " + d.category + "\n" +
+              "🕞 Zeitpunkt: " + closedAt + "\n\n" +
+              "💬 Solltest du weitere Fragen haben, kannst du jederzeit ein neues Ticket erstellen."
             )
             .setImage(IMAGE)
         ],
         files: [file]
       });
-    } catch (e) {}
+    } catch (e) {
+      log(client, "WARN", "Ticket-Transcript konnte nicht gesendet werden",
+        "User: " + d.creator + " | Error: " + e.message
+      );
+    }
 
     log(client, "TICKET", "Ticket geschlossen", "Channel: " + i.channel.name + "\nGeschlossen von: " + closedBy, i.user);
 
@@ -240,4 +306,4 @@ async function handleInteraction(i, client) {
   }
 }
 
-module.exports = { sendPanel, handleInteraction };
+module.exports = { sendPanel, handleInteraction, restoreTicketsOnStartup };

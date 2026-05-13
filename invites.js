@@ -68,15 +68,16 @@ async function cacheInvites(guild) {
 async function handleJoin(member, client) {
   const guild = member.guild;
 
-  const newInvites = await guild.invites.fetch().catch(function() { return null; });
+  // WICHTIG: Alte Invites ZUERST speichern, BEVOR neue abgerufen werden
   const oldInvites = cache.get(guild.id);
-
-  // Cache immer sofort aktualisieren
-  if (newInvites) {
-    cache.set(guild.id, new Map(newInvites.map(function(i) { return [i.code, i.uses]; })));
-  }
+  const newInvites = await guild.invites.fetch().catch(function() { return null; });
 
   if (!newInvites || !oldInvites) {
+    // Cache nur aktualisieren wenn Abruf erfolgreich war
+    if (newInvites) {
+      cache.set(guild.id, new Map(newInvites.map(function(i) { return [i.code, i.uses]; })));
+    }
+    
     log(client, "WARN", "Join ohne Invite-Cache",
       "User: " + member.user.tag + " (" + member.id + ")\n" +
       "Cache vorhanden: " + !!oldInvites + " | Invites abrufbar: " + !!newInvites
@@ -84,11 +85,15 @@ async function handleJoin(member, client) {
     return;
   }
 
+  // Vergleich: Welcher Invite wurde benutzt?
   let used = null;
   newInvites.forEach(function(inv) {
     const oldUses = oldInvites.get(inv.code) || 0;
     if ((inv.uses || 0) > oldUses) used = inv;
   });
+
+  // JETZT erst Cache aktualisieren (nach Vergleich!)
+  cache.set(guild.id, new Map(newInvites.map(function(i) { return [i.code, i.uses]; })));
 
   if (!used || !used.inviter) {
     log(client, "WARN", "Join ohne erkennbaren Inviter",
@@ -118,7 +123,6 @@ async function handleJoin(member, client) {
 }
 
 // ─── Leave ────────────────────────────────────────────────────────────────────
-// Regel: Invite wird IMMER abgezogen wenn jemand den Server verlaesst.
 
 async function handleLeave(member, client) {
   const tracked = await getJoinTrack(member.id);
@@ -248,23 +252,39 @@ async function betlabhelp(i) {
 }
 
 async function betlabsendbetlab(i) {
-  if (!isTeam(i)) return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  if (!isTeam(i)) {
+    log(i.client, "WARN", "Unberechtigter Zugriff",
+      "User: " + i.user.tag + " versuchte /betlabsendbetlab ohne Team-Rolle",
+      i.user
+    );
+    return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  }
+  
   await i.deferReply({ flags: 64 });
   const user   = i.options.getUser("user");
   const amount = i.options.getInteger("amount");
   const data   = await getUser(user.id);
   await saveUser(user.id, data.normal, data.betlab + amount);
+  
   log(i.client, "INVITE", "Betlab Invites vergeben",
     "User: " + user.tag + " (" + user.id + ")\n" +
     "+" + amount + " Betlab-Invites\n" +
     "Neuer Stand: " + data.normal + " Normal / " + (data.betlab + amount) + " Betlab",
     i.user
   );
+  
   return i.editReply("+" + amount + " Betlab-Invites an " + user.username + " vergeben.");
 }
 
 async function betlabinvitesedit(i) {
-  if (!isTeam(i)) return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  if (!isTeam(i)) {
+    log(i.client, "WARN", "Unberechtigter Zugriff",
+      "User: " + i.user.tag + " versuchte /betlabinvitesedit ohne Team-Rolle",
+      i.user
+    );
+    return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  }
+  
   await i.deferReply({ flags: 64 });
   const user   = i.options.getUser("user");
   const type   = i.options.getString("type");
@@ -274,51 +294,82 @@ async function betlabinvitesedit(i) {
   const normal = type === "normal" ? amount : data.normal;
   const betlab = type === "betlab" ? amount : data.betlab;
   await saveUser(user.id, normal, betlab);
+  
   log(i.client, "INVITE", "Invites manuell bearbeitet",
     "User: " + user.tag + " (" + user.id + ")\n" +
     "Typ: " + type + "\n" +
     "Vorher: " + oldVal + " -> Nachher: " + amount,
     i.user
   );
+  
   return i.editReply(type + " Invites von " + user.username + " auf " + amount + " gesetzt.");
 }
 
 async function betlabinviteclear(i) {
-  if (!isTeam(i)) return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  if (!isTeam(i)) {
+    log(i.client, "WARN", "Unberechtigter Zugriff",
+      "User: " + i.user.tag + " versuchte /betlabinviteclear ohne Team-Rolle",
+      i.user
+    );
+    return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  }
+  
   await i.deferReply({ flags: 64 });
   const user = i.options.getUser("user");
   const old  = await getUser(user.id);
   await saveUser(user.id, 0, 0);
+  
   log(i.client, "INVITE", "Invites zurueckgesetzt",
     "User: " + user.tag + " (" + user.id + ")\n" +
     "Vorher: " + old.normal + " Normal / " + old.betlab + " Betlab -> 0 / 0",
     i.user
   );
+  
   return i.editReply("Invites von " + user.username + " zurueckgesetzt.");
 }
 
 async function betlabclearchat(i) {
-  if (!isTeam(i)) return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  if (!isTeam(i)) {
+    log(i.client, "WARN", "Unberechtigter Zugriff",
+      "User: " + i.user.tag + " versuchte /betlabclearchat ohne Team-Rolle",
+      i.user
+    );
+    return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  }
+  
   const anzahl = i.options.getInteger("anzahl");
   await i.deferReply({ flags: 64 });
   const deleted = await i.channel.bulkDelete(anzahl, true).catch(function() { return null; });
+  
   if (!deleted) return i.editReply("Fehler. Nachrichten aelter als 14 Tage koennen nicht geloescht werden.");
+  
   log(i.client, "MOD", "Chat geleert",
     "Channel: #" + i.channel.name + " (" + i.channel.id + ")\n" +
     "Geloescht: " + deleted.size + " Nachrichten",
     i.user
   );
+  
   return i.editReply(deleted.size + " Nachrichten geloescht.");
 }
 
 async function betlabsendticketpanel(i) {
+  if (!isTeam(i)) {
+    log(i.client, "WARN", "Unberechtigter Zugriff",
+      "User: " + i.user.tag + " versuchte /betlabsendticketpanel ohne Team-Rolle",
+      i.user
+    );
+    return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  }
+  
   const { sendPanel } = require("./tickets");
   await i.deferReply({ flags: 64 });
   await sendPanel(i.channel);
+  
   log(i.client, "INFO", "Ticket Panel gesendet",
     "Channel: #" + i.channel.name + " (" + i.channel.id + ")",
     i.user
   );
+  
   return i.editReply("Ticket Panel gesendet.");
 }
 
@@ -326,16 +377,14 @@ async function betlabsendticketpanel(i) {
 
 async function handleCommand(i, client) {
   const name = i.commandName;
-  if (name === "betlabhelp")        { betlabhelp(i);           return true; }
-  if (name === "betlabinvites")     { betlabinvites(i);        return true; }
-  if (name === "betlabranking")     { betlabranking(i);        return true; }
-  if (name === "betlabsendbetlab")  { betlabsendbetlab(i);     return true; }
-  if (name === "betlabinvitesedit") { betlabinvitesedit(i);    return true; }
-  if (name === "betlabinviteclear") { betlabinviteclear(i);    return true; }
-  if (name === "betlabclearchat")   { betlabclearchat(i);      return true; }
-  if (name === "betlabsend" || name === "betlabsendticketpanel") {
-    betlabsendticketpanel(i); return true;
-  }
+  if (name === "betlabhelp")             { betlabhelp(i);             return true; }
+  if (name === "betlabinvites")          { betlabinvites(i);          return true; }
+  if (name === "betlabranking")          { betlabranking(i);          return true; }
+  if (name === "betlabsendbetlab")       { betlabsendbetlab(i);       return true; }
+  if (name === "betlabinvitesedit")      { betlabinvitesedit(i);      return true; }
+  if (name === "betlabinviteclear")      { betlabinviteclear(i);      return true; }
+  if (name === "betlabclearchat")        { betlabclearchat(i);        return true; }
+  if (name === "betlabsendticketpanel")  { betlabsendticketpanel(i);  return true; }
   return false;
 }
 

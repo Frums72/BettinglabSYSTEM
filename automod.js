@@ -28,9 +28,12 @@ const LINK_ALLOWED_CHANNELS = [];
 // userId -> [timestamp, timestamp, ...]
 const spamTracker = new Map();
 
-// Alte Eintraege aufraumen (alle 60s)
+// FIX: Cleanup alle 15s statt 60s (verhindert RAM-Probleme bei vielen Usern)
 setInterval(function() {
   const now = Date.now();
+  const limit = 1000; // Max 1000 User im Tracker
+  
+  // Alte Eintraege entfernen
   spamTracker.forEach(function(times, userId) {
     const recent = times.filter(function(t) { return now - t < SPAM_WINDOW_MS; });
     if (recent.length === 0) {
@@ -39,7 +42,23 @@ setInterval(function() {
       spamTracker.set(userId, recent);
     }
   });
-}, 60000);
+  
+  // Wenn Map zu gross: aelteste Eintraege loeschen
+  if (spamTracker.size > limit) {
+    const entries = Array.from(spamTracker.entries());
+    const toDelete = entries
+      .sort(function(a, b) {
+        const aOldest = Math.min(...a[1]);
+        const bOldest = Math.min(...b[1]);
+        return aOldest - bOldest;
+      })
+      .slice(0, spamTracker.size - limit);
+    
+    toDelete.forEach(function(entry) {
+      spamTracker.delete(entry[0]);
+    });
+  }
+}, 15000); // 15 Sekunden
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -66,6 +85,14 @@ async function timeoutMember(member, durationMs, reason, client, message) {
       setTimeout(function() { msg.delete().catch(function() {}); }, 8000);
     });
   } catch(e) {}
+  
+  // Log mit Nachrichteninhalt
+  log(client, "MOD", "Automod - " + reason,
+    "User: " + member.user.tag + " (" + member.user.id + ")\n" +
+    "Channel: #" + message.channel.name + "\n" +
+    "Timeout: " + Math.round(durationMs / 60000) + " Min\n" +
+    "Nachricht: " + message.content.substring(0, 200)
+  );
 }
 
 // ─── Main Handler ─────────────────────────────────────────────────────────────

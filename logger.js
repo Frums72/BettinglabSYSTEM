@@ -13,7 +13,9 @@ const COLORS = {
   INVITE:  "#5865F2",
   JOIN:    "#2ECC71",
   LEAVE:   "#95A5A6",
-  MESSAGE: "#1ABC9C"
+  MESSAGE: "#1ABC9C",
+  EMBED:   "#E91E63",
+  STATS:   "#00BCD4"
 };
 
 async function log(client, type, action, details, user) {
@@ -25,7 +27,10 @@ async function log(client, type, action, details, user) {
       client.channels.cache.get(LOG_CHANNEL_ID) ||
       await client.channels.fetch(LOG_CHANNEL_ID).catch(function() { return null; });
 
-    if (!ch) return;
+    if (!ch) {
+      console.error("LOG ERROR: Log-Channel nicht gefunden (" + LOG_CHANNEL_ID + ")");
+      return;
+    }
 
     const embed = new EmbedBuilder()
       .setColor(COLORS[type] || COLORS.INFO)
@@ -38,9 +43,13 @@ async function log(client, type, action, details, user) {
       embed.addFields({ name: "User", value: user.tag + " (" + user.id + ")" });
     }
 
-    await ch.send({ embeds: [embed] }).catch(function() {});
+    await ch.send({ embeds: [embed] }).catch(function(err) {
+      console.error("LOG SEND FAILED:", err.message);
+      console.error("Versuchte zu loggen:", type, action, details);
+    });
   } catch (e) {
     console.error("LOG ERROR:", e && e.message ? e.message : e);
+    console.error("Versuchte zu loggen:", type, action, details);
   }
 }
 

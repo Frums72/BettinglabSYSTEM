@@ -6,7 +6,9 @@ const BETLAB_CHANNEL   = "1496989929765339296";
 const ROLE_BETLAB      = "963871826637905991";
 const ROLE_MEMBER      = "963867044376371320";
 
-async function updateStats(guild) {
+const { log } = require("./logger");
+
+async function updateStats(guild, client) {
   try {
     await guild.members.fetch();
 
@@ -24,16 +26,36 @@ async function updateStats(guild) {
     const memberChannel = guild.channels.cache.get(MEMBER_CHANNEL);
     const betlabChannel = guild.channels.cache.get(BETLAB_CHANNEL);
 
+    let updated = false;
+
     if (memberChannel) {
-      await memberChannel.setName("MEMBER: " + memberCount).catch(function() {});
+      const newName = "MEMBER: " + memberCount;
+      if (memberChannel.name !== newName) {
+        await memberChannel.setName(newName).catch(function() {});
+        updated = true;
+      }
     }
 
     if (betlabChannel) {
-      await betlabChannel.setName("[BETLAB]: " + betlabCount).catch(function() {});
+      const newName = "[BETLAB]: " + betlabCount;
+      if (betlabChannel.name !== newName) {
+        await betlabChannel.setName(newName).catch(function() {});
+        updated = true;
+      }
+    }
+
+    // NEU: Nur loggen wenn tatsächlich was geändert wurde
+    if (updated && client) {
+      log(client, "STATS", "Stats aktualisiert",
+        "Member: " + memberCount + "\nBETLAB: " + betlabCount
+      );
     }
 
   } catch (e) {
     console.error("Stats Fehler:", e && e.message ? e.message : e);
+    if (client) {
+      log(client, "ERROR", "Stats Update fehlgeschlagen", e && e.message ? e.message : String(e));
+    }
   }
 }
 

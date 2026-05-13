@@ -8,6 +8,8 @@ const {
   TextInputStyle
 } = require("discord.js");
 
+const { log } = require("./logger");
+
 const TEAM_ROLE_ID = "963870711678640188";
 const DEFAULT_IMAGE = "https://s1.directupload.eu/images/260424/twd9ydz3.jpg";
 const DEFAULT_COLOR = 0xE67E22;
@@ -37,22 +39,28 @@ function buildPreviewButtons(sessionId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("eb_edit_" + sessionId)
-      .setLabel("\u270F\uFE0F Bearbeiten")
+      .setLabel("✏️ Bearbeiten")
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId("eb_send_" + sessionId)
-      .setLabel("\u2705 Senden")
+      .setLabel("✅ Senden")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId("eb_cancel_" + sessionId)
-      .setLabel("\u274C Abbrechen")
+      .setLabel("❌ Abbrechen")
       .setStyle(ButtonStyle.Danger)
   );
 }
 
 // Step 1: /betlabsend -> direkt Modal mit Channel-ID + Embed-Felder
 async function startEmbedBuilder(i) {
-  if (!isTeam(i)) return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  if (!isTeam(i)) {
+    log(i.client, "WARN", "Unberechtigter Zugriff",
+      "User: " + i.user.tag + " versuchte /betlabsend ohne Team-Rolle",
+      i.user
+    );
+    return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  }
 
   const sessionId = i.user.id + "_" + Date.now();
 
@@ -136,7 +144,7 @@ async function handleModal(i, sessionId) {
 
   if (!channel) {
     return i.reply({
-      content: "\u274C Channel-ID nicht gefunden: `" + channelId + "`\nBitte pr\u00FCfe die ID und versuche es erneut mit /betlabsend.",
+      content: "❌ Channel-ID nicht gefunden: `" + channelId + "`\nBitte prüfe die ID und versuche es erneut mit /betlabsend.",
       flags: 64
     });
   }
@@ -148,7 +156,7 @@ async function handleModal(i, sessionId) {
   session.color       = color ? hexToInt(color) : DEFAULT_COLOR;
 
   await i.reply({
-    content: "**Vorschau** \u2192 Ziel: <#" + channelId + ">",
+    content: "**Vorschau** → Ziel: <#" + channelId + ">",
     embeds: [buildPreviewEmbed(session)],
     components: [buildPreviewButtons(sessionId)],
     flags: 64
@@ -227,6 +235,14 @@ async function handleSend(i, sessionId) {
 
   await channel.send({ embeds: [buildPreviewEmbed(session)] });
 
+  // NEU: Logging
+  log(i.client, "EMBED", "Embed gesendet",
+    "Channel: #" + channel.name + " (" + channel.id + ")\n" +
+    "Titel: " + session.title + "\n" +
+    "Von: " + i.user.tag,
+    i.user
+  );
+
   sessions.delete(sessionId);
 
   await i.update({
@@ -234,7 +250,7 @@ async function handleSend(i, sessionId) {
     embeds: [
       new EmbedBuilder()
         .setColor(0x57F287)
-        .setTitle("\u2705 Gesendet!")
+        .setTitle("✅ Gesendet!")
         .setDescription("Der Embed wurde in <#" + channel.id + "> gesendet.")
     ],
     components: []
@@ -249,7 +265,7 @@ async function handleCancel(i, sessionId) {
     embeds: [
       new EmbedBuilder()
         .setColor(0xED4245)
-        .setTitle("\u274C Abgebrochen")
+        .setTitle("❌ Abgebrochen")
         .setDescription("Der Embed Builder wurde abgebrochen.")
     ],
     components: []

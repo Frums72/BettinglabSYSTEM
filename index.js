@@ -7,7 +7,7 @@ const {
 } = require("discord.js");
 
 const { cacheInvites, handleJoin, handleLeave, handleCommand } = require("./invites");
-const { handleInteraction } = require("./tickets");
+const { handleInteraction, restoreTicketsOnStartup } = require("./tickets");
 const { log } = require("./logger");
 const { updateStats } = require("./stats");
 const { startEmbedBuilder, handleEmbedBuilder } = require("./embedbuilder");
@@ -73,29 +73,31 @@ client.once("clientReady", async function() {
   console.log("Online als " + client.user.tag);
   for (const guild of client.guilds.cache.values()) {
     await cacheInvites(guild);
-    await updateStats(guild);
+    await updateStats(guild, client);
+    // NEU: Tickets nach Restart wiederherstellen
+    await restoreTicketsOnStartup(guild, client);
   }
   log(client, "SUCCESS", "Bot gestartet", "Tag: " + client.user.tag);
 });
 
 client.on("guildCreate", async function(guild) {
   await cacheInvites(guild);
-  await updateStats(guild);
+  await updateStats(guild, client);
   log(client, "INFO", "Neuer Server beigetreten", "Guild: " + guild.name + " (" + guild.id + ")");
 });
 
 client.on("guildMemberAdd", async function(member) {
   await handleJoin(member, client);
-  await updateStats(member.guild);
+  await updateStats(member.guild, client);
 });
 
 client.on("guildMemberRemove", async function(member) {
   await handleLeave(member, client);
-  await updateStats(member.guild);
+  await updateStats(member.guild, client);
 });
 
 client.on("guildMemberUpdate", async function(oldMember, newMember) {
-  await updateStats(newMember.guild);
+  await updateStats(newMember.guild, client);
 });
 
 // Automod: jede Nachricht pruefen
