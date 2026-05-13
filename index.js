@@ -105,6 +105,11 @@ const commands = [
     .setDescription("Coins manuell setzen")
     .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
     .addIntegerOption(o => o.setName("anzahl").setDescription("Anzahl").setRequired(true)),
+  new SlashCommandBuilder()
+    .setName("betlabeditxp")
+    .setDescription("XP manuell setzen")
+    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
+    .addIntegerOption(o => o.setName("xp").setDescription("Total XP Anzahl").setRequired(true)),
   new SlashCommandBuilder().setName("betlabtop").setDescription("Top 10 Level Ranking"),
   new SlashCommandBuilder().setName("betlabcointop").setDescription("Top 10 Coins Ranking")
   
@@ -121,7 +126,7 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
   }
 })();
 
-client.once("ready", async function() {
+client.once("clientReady", async function() {
   console.log("🚀 Online als " + client.user.tag);
   
   for (const guild of client.guilds.cache.values()) {

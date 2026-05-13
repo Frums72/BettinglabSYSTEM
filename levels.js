@@ -170,6 +170,23 @@ async function betlabeditcoins(i) {
   return i.editReply("✅ Coins von **" + target.username + "** auf **" + amount + "** gesetzt.");
 }
 
+async function betlabeditxp(i) {
+  const TEAM_ROLE_ID = "963870711678640188";
+  if (!i.member.roles.cache.has(TEAM_ROLE_ID)) {
+    log(i.client, "WARN", "Unberechtigter Zugriff", "User: " + i.user.tag + " versuchte /betlabeditxp", i.user);
+    return i.reply({ content: "❌ Keine Berechtigung.", flags: 64 });
+  }
+  await i.deferReply({ flags: 64 });
+  const target = i.options.getUser("user");
+  const totalXp = i.options.getInteger("xp");
+  const data = await getUserLevel(target.id);
+  const oldLevel = data.level;
+  const { level: newLevel, currentXp } = getLevelFromTotalXp(totalXp);
+  await saveUserLevel(target.id, currentXp, newLevel, data.coins, totalXp);
+  log(i.client, "XP", "XP editiert", "Ziel: " + target.tag + "\nVorher: " + data.total_xp + " XP (Level " + oldLevel + ")\nNachher: " + totalXp + " XP (Level " + newLevel + ")", i.user);
+  return i.editReply("✅ XP von **" + target.username + "** auf **" + totalXp + "** gesetzt.\n**Neues Level:** " + newLevel);
+}
+
 async function betlabtop(i) {
   await i.deferReply();
   const top = await getTopUsers(10);
@@ -204,6 +221,7 @@ async function handleCommand(i) {
   if (name === "betlabxp") { betlabxp(i); return true; }
   if (name === "betlabcoinflip") { betlabcoinflip(i); return true; }
   if (name === "betlabeditcoins") { betlabeditcoins(i); return true; }
+  if (name === "betlabeditxp") { betlabeditxp(i); return true; }
   if (name === "betlabtop") { betlabtop(i); return true; }
   if (name === "betlabcointop") { betlabcointop(i); return true; }
   return false;
