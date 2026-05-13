@@ -343,7 +343,7 @@ async function handleCommand(i) {
   const n=i.commandName;
   if(n==="betlabcoins"){betlabcoins(i);return true;}
   if(n==="betlabxp"){betlabxp(i);return true;}
-  if(n==="betlabcf"){betlabcf(i);return true;}
+  if(n==="betlabcoinflip"){betlabcf(i);return true;}
   if(n==="betlabranking"){betlabranking(i);return true;}
   if(n==="betlabeditcoins"){betlabeditcoins(i);return true;}
   if(n==="betlabeditxp"){betlabeditxp(i);return true;}
