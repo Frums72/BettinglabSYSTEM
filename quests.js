@@ -17,55 +17,91 @@ let dailyMessageId = null;
 let weeklyMessageId = null;
 
 async function generateDailyQuests() {
-  const today = new Date().toISOString().split("T")[0];
-  const { data: ex } = await supabase.from("daily_quests").select("*").eq("date", today).limit(1);
-  if (ex && ex.length > 0) return;
-  
-  const types = Object.keys(QUEST_TYPES);
-  const quests = [];
-  
-  for (let i = 0; i < 3; i++) {
-    const t = types[Math.floor(Math.random() * types.length)];
-    quests.push({ date: today, quest_type: t, difficulty: "light", requirement: QUEST_TYPES[t].l, reward_coins: 5, reward_xp: 25, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].l}x` });
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    console.log(`📋 Checke Daily Quests für ${today}...`);
+    const { data: ex, error: checkError } = await supabase.from("daily_quests").select("*").eq("date", today).limit(1);
+    if (checkError) {
+      console.error("❌ Fehler beim Checken:", checkError);
+      return;
+    }
+    if (ex && ex.length > 0) {
+      console.log(`✅ Daily Quests existieren bereits (${ex.length})`);
+      return;
+    }
+    
+    console.log("🔨 Generiere neue Daily Quests...");
+    const types = Object.keys(QUEST_TYPES);
+    const quests = [];
+    
+    for (let i = 0; i < 3; i++) {
+      const t = types[Math.floor(Math.random() * types.length)];
+      quests.push({ date: today, quest_type: t, difficulty: "light", requirement: QUEST_TYPES[t].l, reward_coins: 5, reward_xp: 25, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].l}x` });
+    }
+    
+    const mt = types[Math.floor(Math.random() * types.length)];
+    quests.push({ date: today, quest_type: mt, difficulty: "medium", requirement: QUEST_TYPES[mt].m, reward_coins: 10, reward_xp: 50, description: `${QUEST_TYPES[mt].name}: ${QUEST_TYPES[mt].m}x` });
+    
+    const ht = types[Math.floor(Math.random() * types.length)];
+    quests.push({ date: today, quest_type: ht, difficulty: "hard", requirement: QUEST_TYPES[ht].h, reward_coins: 20, reward_xp: 100, description: `${QUEST_TYPES[ht].name}: ${QUEST_TYPES[ht].h}x` });
+    
+    const { error: insertError } = await supabase.from("daily_quests").insert(quests);
+    if (insertError) {
+      console.error("❌ Fehler beim Einfügen:", insertError);
+      return;
+    }
+    console.log(`✅ ${quests.length} Daily Quests generiert!`);
+  } catch(e) {
+    console.error("❌ Generate Daily Quests Error:", e);
   }
-  
-  const mt = types[Math.floor(Math.random() * types.length)];
-  quests.push({ date: today, quest_type: mt, difficulty: "medium", requirement: QUEST_TYPES[mt].m, reward_coins: 10, reward_xp: 50, description: `${QUEST_TYPES[mt].name}: ${QUEST_TYPES[mt].m}x` });
-  
-  const ht = types[Math.floor(Math.random() * types.length)];
-  quests.push({ date: today, quest_type: ht, difficulty: "hard", requirement: QUEST_TYPES[ht].h, reward_coins: 20, reward_xp: 100, description: `${QUEST_TYPES[ht].name}: ${QUEST_TYPES[ht].h}x` });
-  
-  await supabase.from("daily_quests").insert(quests);
 }
 
 async function generateWeeklyQuests() {
-  const now = new Date();
-  const mon = new Date(now);
-  mon.setDate(now.getDate() - now.getDay() + 1);
-  const ws = mon.toISOString().split("T")[0];
-  
-  const { data: ex } = await supabase.from("weekly_quests").select("*").eq("week_start", ws).limit(1);
-  if (ex && ex.length > 0) return;
-  
-  const types = Object.keys(QUEST_TYPES);
-  const quests = [];
-  
-  for (let i = 0; i < 5; i++) {
-    const t = types[Math.floor(Math.random() * types.length)];
-    quests.push({ week_start: ws, quest_type: t, difficulty: "light", requirement: QUEST_TYPES[t].wl, reward_coins: 10, reward_xp: 50, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wl}x` });
+  try {
+    const now = new Date();
+    const mon = new Date(now);
+    mon.setDate(now.getDate() - now.getDay() + 1);
+    const ws = mon.toISOString().split("T")[0];
+    
+    console.log(`📅 Checke Weekly Quests für Woche ${ws}...`);
+    const { data: ex, error: checkError } = await supabase.from("weekly_quests").select("*").eq("week_start", ws).limit(1);
+    if (checkError) {
+      console.error("❌ Fehler beim Checken:", checkError);
+      return;
+    }
+    if (ex && ex.length > 0) {
+      console.log(`✅ Weekly Quests existieren bereits (${ex.length})`);
+      return;
+    }
+    
+    console.log("🔨 Generiere neue Weekly Quests...");
+    const types = Object.keys(QUEST_TYPES);
+    const quests = [];
+    
+    for (let i = 0; i < 5; i++) {
+      const t = types[Math.floor(Math.random() * types.length)];
+      quests.push({ week_start: ws, quest_type: t, difficulty: "light", requirement: QUEST_TYPES[t].wl, reward_coins: 10, reward_xp: 50, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wl}x` });
+    }
+    
+    for (let i = 0; i < 3; i++) {
+      const t = types[Math.floor(Math.random() * types.length)];
+      quests.push({ week_start: ws, quest_type: t, difficulty: "medium", requirement: QUEST_TYPES[t].wm, reward_coins: 25, reward_xp: 100, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wm}x` });
+    }
+    
+    for (let i = 0; i < 2; i++) {
+      const t = types[Math.floor(Math.random() * types.length)];
+      quests.push({ week_start: ws, quest_type: t, difficulty: "hard", requirement: QUEST_TYPES[t].wh, reward_coins: 50, reward_xp: 250, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wh}x` });
+    }
+    
+    const { error: insertError } = await supabase.from("weekly_quests").insert(quests);
+    if (insertError) {
+      console.error("❌ Fehler beim Einfügen:", insertError);
+      return;
+    }
+    console.log(`✅ ${quests.length} Weekly Quests generiert!`);
+  } catch(e) {
+    console.error("❌ Generate Weekly Quests Error:", e);
   }
-  
-  for (let i = 0; i < 3; i++) {
-    const t = types[Math.floor(Math.random() * types.length)];
-    quests.push({ week_start: ws, quest_type: t, difficulty: "medium", requirement: QUEST_TYPES[t].wm, reward_coins: 25, reward_xp: 100, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wm}x` });
-  }
-  
-  for (let i = 0; i < 2; i++) {
-    const t = types[Math.floor(Math.random() * types.length)];
-    quests.push({ week_start: ws, quest_type: t, difficulty: "hard", requirement: QUEST_TYPES[t].wh, reward_coins: 50, reward_xp: 250, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wh}x` });
-  }
-  
-  await supabase.from("weekly_quests").insert(quests);
 }
 
 async function postDailyQuests(client) {

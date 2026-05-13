@@ -23,13 +23,15 @@ async function postDailyRewards(client) {
   const ch = client.channels.cache.get(CHANNEL_ID) || await client.channels.fetch(CHANNEL_ID);
   if (!ch) return;
   
-  let desc = "**🎁 Tägliche Belohnungen - 7 Tage Serie!**\n\n";
+  let desc = "Hole dir jeden Tag deine Belohnung ab!\n**Verpasse keinen Tag - nach 24h ohne Claim startet die Serie neu!**\n\n";
+  
   for (const r of DAILY_REWARDS) {
-    desc += `**Tag ${r.day}:** ${r.coins} Coins + ${r.xp} XP`;
+    const emoji = "🎁";
+    desc += `${emoji} **Tag ${r.day}**\n`;
+    desc += `└ ${r.coins} Coins + ${r.xp} XP`;
     if (r.boost > 0) desc += ` + ${r.boost}% Boost (${r.boostHours}h)`;
-    desc += "\n";
+    desc += "\n\n";
   }
-  desc += "\n⚠️ **Verpasse keinen Tag! Nach 24h ohne Claim startet die Serie neu!**";
   
   const rows = [];
   for (let i = 0; i < 7; i++) {
@@ -41,8 +43,13 @@ async function postDailyRewards(client) {
     else rows[rows.length - 1].addComponents(btn);
   }
   
-  const embed = new EmbedBuilder().setColor(0xF1C40F).setTitle("🎁 Daily Rewards").setDescription(desc);
-  await ch.send({ content: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", embeds: [embed], components: rows });
+  const embed = new EmbedBuilder()
+    .setColor(0xF1C40F)
+    .setTitle("🎁 Tägliche Belohnungen - 7 Tage Serie!")
+    .setDescription(desc)
+    .setFooter({ text: "Klicke auf deinen aktuellen Tag!" });
+  
+  await ch.send({ embeds: [embed], components: rows });
 }
 
 async function handleDailyButton(i) {
