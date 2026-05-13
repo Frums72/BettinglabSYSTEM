@@ -22,7 +22,7 @@ const userTickets = new Map();
 const PRIORITY_LEVELS = ["keine", "Low", "Medium", "High"];
 
 // FIX: Tickets nach Bot-Restart wiederherstellen
-async function restoreTicketsOnStartup(guild, client) {
+async function restoreTickets(guild, client) {
   try {
     const category = guild.channels.cache.get(CATEGORY_ID);
     if (!category || category.type !== ChannelType.GuildCategory) return;
@@ -306,4 +306,4 @@ async function handleInteraction(i, client) {
   }
 }
 
-module.exports = { sendPanel, handleInteraction, restoreTicketsOnStartup };
+module.exports = { sendPanel, handleInteraction, restoreTickets };

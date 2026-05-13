@@ -6,14 +6,14 @@ const {
   Routes
 } = require("discord.js");
 
-const { cacheInvites, handleJoin, handleLeave, handleCommand } = require("./invites");
-const { handleInteraction, restoreTickets } = require("./tickets");
+const { cacheInvites, handleJoin, handleLeave, handleCommand: handleInviteCommand } = require("./invites");
+const { handleInteraction: handleTicketInteraction, restoreTickets } = require("./tickets");
 const { log } = require("./logger");
 const { updateStats } = require("./stats");
 const { startEmbedBuilder, handleEmbedBuilder } = require("./embedbuilder");
-const { handleMessage } = require("./automod");
-const { handleXPGain, handleLevelCommands } = require("./levels");
-const { handleModerationCommands } = require("./moderation");
+const { handleMessage: handleAutomod } = require("./automod");
+const { handleMessage: handleLevelMessage, handleCommand: handleLevelCommand } = require("./levels");
+const { handleCommand: handleModCommand } = require("./moderation");
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -29,126 +29,108 @@ const client = new Client({
 });
 
 const commands = [
-  // ─── Info & Help ───────────────────────────────────────────────────────────
+  // Help & Info
   new SlashCommandBuilder().setName("betlabhelp").setDescription("Alle Commands anzeigen"),
   
-  // ─── Embed & Tickets ───────────────────────────────────────────────────────
+  // Embed Builder
   new SlashCommandBuilder().setName("betlabsend").setDescription("Embed Builder"),
   new SlashCommandBuilder().setName("betlabsendticketpanel").setDescription("Ticket Panel senden"),
   
-  // ─── Invites ───────────────────────────────────────────────────────────────
+  // Invites
   new SlashCommandBuilder()
     .setName("betlabinvites")
     .setDescription("Invite-Stats anzeigen")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User (optional)"); }),
+    .addUserOption(o => o.setName("user").setDescription("User (optional)")),
   new SlashCommandBuilder().setName("betlabranking").setDescription("Top 5 Invite Ranking"),
   new SlashCommandBuilder()
     .setName("betlabinvitesedit")
     .setDescription("Invites manuell setzen")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User").setRequired(true); })
-    .addStringOption(function(o) {
-      return o.setName("type").setDescription("Typ").setRequired(true)
-        .addChoices({ name: "Normal", value: "normal" }, { name: "Betlab", value: "betlab" });
-    })
-    .addIntegerOption(function(o) { return o.setName("amount").setDescription("Anzahl").setRequired(true); }),
+    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
+    .addStringOption(o => o.setName("type").setDescription("Typ").setRequired(true)
+      .addChoices({ name: "Normal", value: "normal" }, { name: "Betlab", value: "betlab" }))
+    .addIntegerOption(o => o.setName("amount").setDescription("Anzahl").setRequired(true)),
   new SlashCommandBuilder()
     .setName("betlabinviteclear")
-    .setDescription("Invites zuruecksetzen")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User").setRequired(true); }),
+    .setDescription("Invites zurücksetzen")
+    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true)),
   new SlashCommandBuilder()
     .setName("betlabsendbetlab")
     .setDescription("Betlab-Invites vergeben")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User").setRequired(true); })
-    .addIntegerOption(function(o) { return o.setName("amount").setDescription("Anzahl").setRequired(true); }),
+    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
+    .addIntegerOption(o => o.setName("amount").setDescription("Anzahl").setRequired(true)),
   
-  // ─── Level & Economy ───────────────────────────────────────────────────────
-  new SlashCommandBuilder()
-    .setName("betlabxp")
-    .setDescription("XP Stats anzeigen")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User (optional)"); }),
-  new SlashCommandBuilder()
-    .setName("betlabcoins")
-    .setDescription("Coin Stats anzeigen")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User (optional)"); }),
-  new SlashCommandBuilder().setName("betlableaderboard").setDescription("Level Leaderboard - Top 10"),
-  new SlashCommandBuilder()
-    .setName("betlabcoinflip")
-    .setDescription("Coinflip Minigame")
-    .addIntegerOption(function(o) { return o.setName("anzahl").setDescription("Einsatz (Coins)").setRequired(true).setMinValue(1); }),
-  new SlashCommandBuilder()
-    .setName("betlabcf")
-    .setDescription("Coinflip Minigame (Kurzform)")
-    .addIntegerOption(function(o) { return o.setName("anzahl").setDescription("Einsatz (Coins)").setRequired(true).setMinValue(1); }),
-  new SlashCommandBuilder()
-    .setName("betlabeditcoins")
-    .setDescription("Coins manuell setzen")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User").setRequired(true); })
-    .addIntegerOption(function(o) { return o.setName("anzahl").setDescription("Anzahl").setRequired(true).setMinValue(0); }),
-  new SlashCommandBuilder()
-    .setName("betlabeditxp")
-    .setDescription("XP manuell setzen")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User").setRequired(true); })
-    .addIntegerOption(function(o) { return o.setName("anzahl").setDescription("XP").setRequired(true).setMinValue(0); }),
-  
-  // ─── Moderation ────────────────────────────────────────────────────────────
+  // Moderation
   new SlashCommandBuilder()
     .setName("betlabban")
     .setDescription("User bannen")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User").setRequired(true); })
-    .addStringOption(function(o) { return o.setName("grund").setDescription("Grund"); })
-    .addIntegerOption(function(o) { return o.setName("delete_messages").setDescription("Nachrichten loeschen (Tage, 0-7)").setMinValue(0).setMaxValue(7); }),
-  new SlashCommandBuilder()
-    .setName("betlabunban")
-    .setDescription("User entbannen")
-    .addStringOption(function(o) { return o.setName("user_id").setDescription("User ID").setRequired(true); })
-    .addStringOption(function(o) { return o.setName("grund").setDescription("Grund"); }),
-  new SlashCommandBuilder()
-    .setName("betlabkick")
-    .setDescription("User kicken")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User").setRequired(true); })
-    .addStringOption(function(o) { return o.setName("grund").setDescription("Grund"); }),
+    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
+    .addStringOption(o => o.setName("grund").setDescription("Grund"))
+    .addIntegerOption(o => o.setName("tage").setDescription("Nachrichten löschen (0-7 Tage)").setMinValue(0).setMaxValue(7)),
   new SlashCommandBuilder()
     .setName("betlabtimeout")
     .setDescription("User timeouten")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User").setRequired(true); })
-    .addIntegerOption(function(o) { return o.setName("dauer").setDescription("Dauer (Minuten)").setRequired(true).setMinValue(1).setMaxValue(40320); })
-    .addStringOption(function(o) { return o.setName("grund").setDescription("Grund"); }),
+    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
+    .addIntegerOption(o => o.setName("minuten").setDescription("Dauer in Minuten").setRequired(true).setMinValue(1).setMaxValue(40320))
+    .addStringOption(o => o.setName("grund").setDescription("Grund")),
   new SlashCommandBuilder()
-    .setName("betlabuntimeout")
-    .setDescription("Timeout aufheben")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User").setRequired(true); })
-    .addStringOption(function(o) { return o.setName("grund").setDescription("Grund"); }),
+    .setName("betlabkick")
+    .setDescription("User kicken")
+    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
+    .addStringOption(o => o.setName("grund").setDescription("Grund")),
   new SlashCommandBuilder()
-    .setName("betlabwarn")
-    .setDescription("User verwarnen")
-    .addUserOption(function(o) { return o.setName("user").setDescription("User").setRequired(true); })
-    .addStringOption(function(o) { return o.setName("grund").setDescription("Grund").setRequired(true); }),
-  
-  // ─── Chat Management ───────────────────────────────────────────────────────
+    .setName("betlabunban")
+    .setDescription("User entbannen")
+    .addStringOption(o => o.setName("userid").setDescription("User ID").setRequired(true))
+    .addStringOption(o => o.setName("grund").setDescription("Grund")),
   new SlashCommandBuilder()
     .setName("betlabclearchat")
-    .setDescription("Nachrichten loeschen")
-    .addIntegerOption(function(o) {
-      return o.setName("anzahl").setDescription("Anzahl (1-100)").setRequired(true).setMinValue(1).setMaxValue(100);
-    })
-].map(function(c) { return c.toJSON(); });
+    .setDescription("Nachrichten löschen")
+    .addIntegerOption(o => o.setName("anzahl").setDescription("Anzahl (1-100)").setRequired(true).setMinValue(1).setMaxValue(100)),
+  
+  // Level & Coins System
+  new SlashCommandBuilder()
+    .setName("betlabcoins")
+    .setDescription("Coins & Level anzeigen")
+    .addUserOption(o => o.setName("user").setDescription("User (optional)")),
+  new SlashCommandBuilder()
+    .setName("betlabxp")
+    .setDescription("XP & Level Stats anzeigen")
+    .addUserOption(o => o.setName("user").setDescription("User (optional)")),
+  new SlashCommandBuilder()
+    .setName("betlabcoinflip")
+    .setDescription("Coinflip - Glücksspiel!")
+    .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName("betlabeditcoins")
+    .setDescription("Coins manuell setzen")
+    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
+    .addIntegerOption(o => o.setName("anzahl").setDescription("Anzahl").setRequired(true)),
+  new SlashCommandBuilder().setName("betlabtop").setDescription("Top 10 Level Ranking"),
+  new SlashCommandBuilder().setName("betlabcointop").setDescription("Top 10 Coins Ranking")
+  
+].map(c => c.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 (async function() {
   try {
+    console.log("Registriere Commands...");
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-    console.log("Commands registriert (" + commands.length + " Commands)");
-  } catch (e) { console.error("Commands fehlgeschlagen:", e); }
+    console.log("✅ " + commands.length + " Commands registriert!");
+  } catch (e) { 
+    console.error("❌ Commands fehlgeschlagen:", e); 
+  }
 })();
 
-client.once("clientReady", async function() {
-  console.log("Online als " + client.user.tag);
+client.once("ready", async function() {
+  console.log("🚀 Online als " + client.user.tag);
+  
   for (const guild of client.guilds.cache.values()) {
     await cacheInvites(guild);
     await updateStats(guild, client);
     await restoreTickets(guild, client);
   }
-  log(client, "SUCCESS", "Bot gestartet", "Tag: " + client.user.tag + "\nCommands: " + commands.length);
+  
+  log(client, "SUCCESS", "Bot gestartet", "Tag: " + client.user.tag);
 });
 
 client.on("guildCreate", async function(guild) {
@@ -171,13 +153,11 @@ client.on("guildMemberUpdate", async function(oldMember, newMember) {
   await updateStats(newMember.guild, client);
 });
 
-// Automod & XP System
+// Nachrichten: Automod + Level System
 client.on("messageCreate", async function(message) {
   try {
-    // Automod zuerst (kann Nachricht löschen)
-    await handleMessage(message, client);
-    // XP System (nach Automod, falls Nachricht nicht gelöscht wurde)
-    await handleXPGain(message, client);
+    await handleAutomod(message, client);
+    await handleLevelMessage(message, client);
   } catch(e) {
     console.error("Message Handler Fehler:", e);
     log(client, "ERROR", "Message Handler Fehler", e && e.message ? e.message : String(e));
@@ -190,14 +170,16 @@ client.on("interactionCreate", async function(i) {
       // Embed Builder
       if (i.commandName === "betlabsend") return startEmbedBuilder(i);
       
-      // Command Handler (Reihenfolge wichtig!)
-      const inviteHandled = await handleCommand(i, client);
+      // Invite Commands
+      const inviteHandled = await handleInviteCommand(i, client);
       if (inviteHandled) return;
       
-      const levelHandled = await handleLevelCommands(i);
+      // Level Commands
+      const levelHandled = await handleLevelCommand(i);
       if (levelHandled) return;
       
-      const modHandled = await handleModerationCommands(i);
+      // Moderation Commands
+      const modHandled = await handleModCommand(i);
       if (modHandled) return;
     }
     
@@ -206,7 +188,7 @@ client.on("interactionCreate", async function(i) {
     if (ebHandled !== false) return;
     
     // Ticket Interactions
-    await handleInteraction(i, client);
+    await handleTicketInteraction(i, client);
   } catch (e) {
     console.error("Interaction Fehler:", e);
     log(client, "ERROR", "Interaction Fehler", e && e.message ? e.message : String(e));

@@ -1,0 +1,43 @@
+Der betlabhelp Command muss in invites.js aktualisiert werden.
+
+Ersetze die betlabhelp Funktion (ca. Zeile 182) mit:
+
+async function betlabhelp(i) {
+  return i.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(COLOR)
+        .setTitle("🎮 BETLAB COMMANDS")
+        .setDescription(
+          "**📝 GENERAL**\n" +
+          "/betlabhelp - Commands anzeigen\n" +
+          "/betlabsend - Embed Builder\n" +
+          "/betlabsendticketpanel - Ticket Panel\n\n" +
+          
+          "**🎟️ INVITES**\n" +
+          "/betlabinvites [user] - Invite Stats\n" +
+          "/betlabranking - Top 5 Invites\n" +
+          "/betlabsendbetlab <user> <anzahl> - Betlab Invites vergeben\n" +
+          "/betlabinvitesedit <user> <typ> <anzahl> - Invites setzen\n" +
+          "/betlabinviteclear <user> - Invites reset\n\n" +
+          
+          "**🎮 LEVEL & COINS**\n" +
+          "/betlabcoins [user] - Coins & Level anzeigen\n" +
+          "/betlabxp [user] - XP Stats anzeigen\n" +
+          "/betlabcoinflip <anzahl> - Coinflip Glücksspiel\n" +
+          "/betlabeditcoins <user> <anzahl> - Coins setzen (Team)\n" +
+          "/betlabtop - Top 10 Level Ranking\n" +
+          "/betlabcointop - Top 10 Coins Ranking\n\n" +
+          
+          "**🛡️ MODERATION (Team)**\n" +
+          "/betlabban <user> [grund] [tage] - User bannen\n" +
+          "/betlabtimeout <user> <minuten> [grund] - User timeouten\n" +
+          "/betlabkick <user> [grund] - User kicken\n" +
+          "/betlabunban <userid> [grund] - User entbannen\n" +
+          "/betlabclearchat <anzahl> - Nachrichten löschen"
+        )
+        .setImage(IMAGE)
+    ],
+    flags: 64
+  });
+}
