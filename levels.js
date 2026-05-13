@@ -5,410 +5,208 @@ const { log } = require("./logger");
 const COLOR = 0xE67E22;
 const IMAGE = "https://s1.directupload.eu/images/260424/twd9ydz3.jpg";
 
-// ─── XP Config ────────────────────────────────────────────────────────────────
+const XP_PER_MESSAGE = 15;
+const XP_COOLDOWN_MS = 60000;
+const LEVELUP_CHANNEL_ID = "1504133135468728533";
 
-const XP_PER_MESSAGE = { min: 15, max: 25 };  // Zufällig zwischen 15-25 XP
-const XP_COOLDOWN_MS = 60000;                 // 1 Minute Cooldown zwischen XP-Gains
-const COINS_PER_LEVELUP = 1;                  // 1 Coin pro Level-Up
-
-// Level-Rollen (Level -> RoleID)
 const LEVEL_ROLES = {
-  5:  "ROLE_ID_LEVEL_5",    // Ersetze mit echten IDs!
-  10: "ROLE_ID_LEVEL_10",
-  25: "ROLE_ID_LEVEL_25",
-  50: "ROLE_ID_LEVEL_50",
-  75: "ROLE_ID_LEVEL_75",
-  100: "ROLE_ID_LEVEL_100"
+  1: "1504125201074487396", 2: "1504131694301544528", 3: "1504131724802527443", 4: "1504132011227349102",
+  5: "1504126007559585823", 10: "1504126112136167705", 15: "1504126199092215999", 20: "1504126254822195211",
+  25: "1504126314183921896", 30: "1504126377442545704", 35: "1504126440306638930", 40: "1504126510737658069",
+  45: "1504126572645322912", 50: "1504126622167601152", 55: "1504126685161722049", 60: "1504126752677560471",
+  65: "1504126832210088126", 70: "1504126884827496548", 75: "1504126937969328138", 80: "1504130945731657829",
+  85: "1504130989457149979", 90: "1504131013247242424", 95: "1504131034894045305", 100: "1504131068641677494"
 };
 
-// XP benötigt für Level (Level -> XP Total)
-function getXPForLevel(level) {
-  // Formel: 100 * level^1.5 (exponentielles Wachstum)
-  return Math.floor(100 * Math.pow(level, 1.5));
+function getCoinReward(level) {
+  if (level === 100) return 10;
+  if (level === 75 || level === 50 || level === 25) return 5;
+  if (level % 5 === 0) return 2;
+  return 1;
 }
 
-// ─── Cooldown Tracker ─────────────────────────────────────────────────────────
-
-const xpCooldowns = new Map(); // userId -> timestamp
-
-// Cleanup alle 5 Minuten
-setInterval(function() {
-  const now = Date.now();
-  xpCooldowns.forEach(function(time, userId) {
-    if (now - time > XP_COOLDOWN_MS) {
-      xpCooldowns.delete(userId);
-    }
-  });
-}, 300000);
-
-// ─── DB Helpers ───────────────────────────────────────────────────────────────
+const xpCooldowns = new Map();
 
 async function getUserLevel(userId) {
-  const { data } = await supabase
-    .from("levels")
-    .select("*")
-    .eq("user_id", userId)
-    .single();
-  
-  return data || { 
-    user_id: userId, 
-    xp: 0, 
-    level: 1, 
-    coins: 0,
-    total_messages: 0
-  };
+  const { data } = await supabase.from("levels").select("*").eq("user_id", userId).single();
+  return data || { user_id: userId, xp: 0, level: 0, coins: 0, total_xp: 0 };
 }
 
-async function saveUserLevel(userId, xp, level, coins, totalMessages) {
-  await supabase.from("levels").upsert({ 
-    user_id: userId, 
-    xp: xp, 
-    level: level, 
-    coins: coins,
-    total_messages: totalMessages
-  });
+async function saveUserLevel(userId, xp, level, coins, totalXp) {
+  await supabase.from("levels").upsert({ user_id: userId, xp, level, coins, total_xp: totalXp });
 }
 
 async function getTopUsers(limit = 10) {
-  const { data } = await supabase
-    .from("levels")
-    .select("*")
-    .order("level", { ascending: false })
-    .order("xp", { ascending: false })
-    .limit(limit);
-  
+  const { data } = await supabase.from("levels").select("*").order("total_xp", { ascending: false }).limit(limit);
   return data || [];
 }
 
-// ─── XP Handler ───────────────────────────────────────────────────────────────
+async function getTopCoins(limit = 10) {
+  const { data } = await supabase.from("levels").select("*").order("coins", { ascending: false }).limit(limit);
+  return data || [];
+}
 
-async function handleXPGain(message, client) {
-  // Bots ignorieren
-  if (message.author.bot) return;
-  // DMs ignorieren
-  if (!message.guild) return;
+function getXpForLevel(level) {
+  if (level <= 10) return 100;
+  if (level <= 25) return 150;
+  if (level <= 50) return 200;
+  if (level <= 75) return 300;
+  return 500;
+}
 
-  const userId = message.author.id;
-  
-  // Cooldown Check
-  const lastXP = xpCooldowns.get(userId);
-  const now = Date.now();
-  if (lastXP && (now - lastXP) < XP_COOLDOWN_MS) {
-    return; // Noch im Cooldown
+function getLevelFromTotalXp(totalXp) {
+  let level = 0;
+  let xpNeeded = 0;
+  while (level < 100 && totalXp >= xpNeeded + getXpForLevel(level + 1)) {
+    xpNeeded += getXpForLevel(level + 1);
+    level++;
   }
+  return { level, currentXp: totalXp - xpNeeded };
+}
 
-  // XP vergeben
-  const xpGain = Math.floor(Math.random() * (XP_PER_MESSAGE.max - XP_PER_MESSAGE.min + 1)) + XP_PER_MESSAGE.min;
-  
+async function handleMessage(message, client) {
+  if (message.author.bot || !message.guild) return;
+  const userId = message.author.id;
+  const now = Date.now();
+  const lastXpTime = xpCooldowns.get(userId);
+  if (lastXpTime && now - lastXpTime < XP_COOLDOWN_MS) return;
+  xpCooldowns.set(userId, now);
   const data = await getUserLevel(userId);
   const oldLevel = data.level;
-  let newXP = data.xp + xpGain;
-  let newLevel = data.level;
-  let newCoins = data.coins;
-  const newMessages = data.total_messages + 1;
-
-  // Level-Up Check
-  while (newLevel < 100 && newXP >= getXPForLevel(newLevel + 1)) {
-    newLevel++;
-    newCoins += COINS_PER_LEVELUP;
-  }
-
-  // Speichern
-  await saveUserLevel(userId, newXP, newLevel, newCoins, newMessages);
-  xpCooldowns.set(userId, now);
-
-  // Level-Up Nachricht & Rolle
+  const newTotalXp = data.total_xp + XP_PER_MESSAGE;
+  const { level: newLevel, currentXp } = getLevelFromTotalXp(newTotalXp);
+  await saveUserLevel(userId, currentXp, newLevel, data.coins, newTotalXp);
   if (newLevel > oldLevel) {
-    await handleLevelUp(message, oldLevel, newLevel, newCoins, client);
+    const coinsEarned = getCoinReward(newLevel);
+    await handleLevelUp(message, client, oldLevel, newLevel, data.coins + coinsEarned, coinsEarned);
   }
 }
 
-// ─── Level-Up Handler ─────────────────────────────────────────────────────────
-
-async function handleLevelUp(message, oldLevel, newLevel, coins, client) {
+async function handleLevelUp(message, client, oldLevel, newLevel, newCoins, coinsEarned) {
   const user = message.author;
-  const member = message.member;
-
-  // Level-Up Embed
-  const xpNeeded = getXPForLevel(newLevel + 1);
-  
-  const embed = new EmbedBuilder()
-    .setColor(0xF1C40F)
-    .setTitle("🎉 LEVEL UP!")
-    .setDescription(
-      "**" + user.username + "** ist aufgestiegen!\n\n" +
-      "🆙 Level: **" + oldLevel + " → " + newLevel + "**\n" +
-      "🪙 Coins: **" + coins + "** (+1)\n" +
-      "✨ XP bis Level " + (newLevel + 1) + ": **" + xpNeeded + " XP**\n\n" +
-      "Weiter so! 💪"
-    )
-    .setThumbnail(user.displayAvatarURL())
-    .setImage(IMAGE)
-    .setTimestamp();
-
+  const data = await getUserLevel(user.id);
+  await saveUserLevel(user.id, data.xp, newLevel, newCoins, data.total_xp);
+  let bonusText = "";
+  if (newLevel === 100) bonusText = "\n🎊 **MAXIMALES LEVEL! +10 BONUS!** 🎊";
+  else if (newLevel === 75 || newLevel === 50 || newLevel === 25) bonusText = "\n🎁 **MILESTONE: +5 COINS!**";
+  else if (newLevel % 5 === 0) bonusText = "\n⭐ **5er Milestone: +2 Coins!**";
+  const embed = new EmbedBuilder().setColor(0xF1C40F).setTitle("🎉 LEVEL UP!")
+    .setDescription("<@" + user.id + "> ist aufgestiegen!\n\n📊 **Level:** " + oldLevel + " → **" + newLevel + "**\n🪙 **Coins:** +" + coinsEarned + " (Gesamt: **" + newCoins + "**)" + bonusText + "\n\nWeiter so! 💪")
+    .setThumbnail(user.displayAvatarURL()).setImage(IMAGE).setTimestamp();
   try {
-    await message.channel.send({ embeds: [embed] });
-  } catch(e) {
-    console.log("Konnte Level-Up Nachricht nicht senden:", e.message);
-  }
-
-  // Level-Rolle vergeben
-  const roleId = LEVEL_ROLES[newLevel];
-  if (roleId && member) {
-    const role = message.guild.roles.cache.get(roleId);
-    if (role) {
-      try {
-        await member.roles.add(role);
-        
-        log(client, "SUCCESS", "Level-Rolle vergeben",
-          "User: " + user.tag + " (" + user.id + ")\n" +
-          "Level: " + newLevel + "\n" +
-          "Rolle: " + role.name + " (" + role.id + ")",
-          user
-        );
-      } catch(e) {
-        console.log("Konnte Level-Rolle nicht vergeben:", e.message);
-      }
-    }
-  }
-
-  // Logging
-  log(client, "SUCCESS", "Level-Up",
-    "User: " + user.tag + " (" + user.id + ")\n" +
-    "Level: " + oldLevel + " → " + newLevel + "\n" +
-    "Coins: " + coins + "\n" +
-    "XP bis Next: " + xpNeeded,
-    user
-  );
+    const levelUpChannel = client.channels.cache.get(LEVELUP_CHANNEL_ID) || await client.channels.fetch(LEVELUP_CHANNEL_ID);
+    if (levelUpChannel) await levelUpChannel.send({ embeds: [embed] });
+  } catch (e) { await message.channel.send({ embeds: [embed] }); }
+  await checkLevelRoles(message.member, newLevel, client);
+  log(client, "SUCCESS", "Level Up!", "User: " + user.tag + "\nLevel: " + oldLevel + " → " + newLevel + "\nCoins: +" + coinsEarned, user);
 }
 
-// ─── Commands ─────────────────────────────────────────────────────────────────
-
-async function betlabxp(i) {
-  const target = i.options.getUser("user") || i.user;
-  const data = await getUserLevel(target.id);
-  
-  const currentXP = data.xp;
-  const level = data.level;
-  const xpForNext = getXPForLevel(level + 1);
-  const xpNeeded = xpForNext - currentXP;
-  const progress = Math.floor((currentXP / xpForNext) * 100);
-
-  // Progressbar
-  const barLength = 20;
-  const filled = Math.floor((progress / 100) * barLength);
-  const bar = "█".repeat(filled) + "░".repeat(barLength - filled);
-
-  return i.reply({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(COLOR)
-        .setTitle("📊 XP Stats")
-        .setDescription(
-          "**" + target.username + "**\n\n" +
-          "🆙 Level: **" + level + "** / 100\n" +
-          "✨ XP: **" + currentXP + "** / " + xpForNext + "\n" +
-          "📈 Progress: **" + progress + "%**\n\n" +
-          bar + "\n\n" +
-          "🎯 Noch **" + xpNeeded + " XP** bis Level " + (level + 1) + "!\n" +
-          "💬 Nachrichten: **" + data.total_messages + "**"
-        )
-        .setThumbnail(target.displayAvatarURL())
-        .setImage(IMAGE)
-    ],
-    flags: 64
-  });
+async function checkLevelRoles(member, level, client) {
+  if (!LEVEL_ROLES[level]) return;
+  const roleId = LEVEL_ROLES[level];
+  try {
+    const role = member.guild.roles.cache.get(roleId);
+    if (!role || member.roles.cache.has(roleId)) return;
+    await member.roles.add(roleId);
+    await member.send({ embeds: [new EmbedBuilder().setColor(0x9B59B6).setTitle("🎁 Neue Rolle!").setDescription("**Level " + level + "**\n\n**Rolle:** " + role.name).setImage(IMAGE)] }).catch(() => {});
+    log(client, "SUCCESS", "Level-Rolle vergeben", "User: " + member.user.tag + "\nLevel: " + level + "\nRolle: " + role.name, member.user);
+  } catch (e) { console.error("Rolle Fehler:", e); }
 }
 
 async function betlabcoins(i) {
   const target = i.options.getUser("user") || i.user;
   const data = await getUserLevel(target.id);
-
-  return i.reply({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(COLOR)
-        .setTitle("🪙 Coin Stats")
-        .setDescription(
-          "**" + target.username + "**\n\n" +
-          "🪙 Coins: **" + data.coins + "**\n" +
-          "🆙 Level: **" + data.level + "** / 100\n" +
-          "✨ XP: **" + data.xp + "** / " + getXPForLevel(data.level + 1) + "\n\n" +
-          "💡 Du erhältst 1 Coin pro Level-Up!"
-        )
-        .setThumbnail(target.displayAvatarURL())
-        .setImage(IMAGE)
-    ],
-    flags: 64
-  });
+  const xpForNextLevel = getXpForLevel(data.level + 1);
+  const xpNeeded = xpForNextLevel - data.xp;
+  const progress = Math.floor((data.xp / xpForNextLevel) * 100);
+  return i.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle("🪙 Coins & Level").setDescription("User: **" + target.username + "**\n\n💰 **Coins:** " + data.coins + "\n📊 **Level:** " + data.level + " / 100\n✨ **XP:** " + data.xp + " / " + xpForNextLevel + "\n🎯 **Benötigt:** " + xpNeeded + " XP\n📈 **Progress:** " + progress + "%\n\n🏆 **Total XP:** " + data.total_xp).setThumbnail(target.displayAvatarURL()).setImage(IMAGE)], flags: 64 });
 }
 
-async function betlableaderboard(i) {
-  await i.deferReply();
-  
-  const top = await getTopUsers(10);
-  
-  if (top.length === 0) {
-    return i.editReply("Noch keine Daten vorhanden!");
-  }
-
-  let desc = "";
-  const medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
-  
-  for (let idx = 0; idx < top.length; idx++) {
-    const u = top[idx];
-    let username = "Unbekannt";
-    try {
-      username = (await i.client.users.fetch(u.user_id)).username;
-    } catch(e) {}
-    
-    desc += medals[idx] + " **" + username + "**\n";
-    desc += "   Level: " + u.level + " | XP: " + u.xp + " | Coins: " + u.coins + "\n\n";
-  }
-
-  return i.editReply({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(COLOR)
-        .setTitle("🏆 Level Leaderboard - Top 10")
-        .setDescription(desc)
-        .setImage(IMAGE)
-    ]
-  });
+async function betlabxp(i) {
+  const target = i.options.getUser("user") || i.user;
+  const data = await getUserLevel(target.id);
+  const xpForNextLevel = getXpForLevel(data.level + 1);
+  const xpNeeded = xpForNextLevel - data.xp;
+  const progress = Math.floor((data.xp / xpForNextLevel) * 100);
+  const barLength = 20;
+  const filled = Math.floor((progress / 100) * barLength);
+  const progressBar = "█".repeat(filled) + "░".repeat(barLength - filled);
+  return i.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle("📊 XP Stats").setDescription("User: **" + target.username + "**\n\n**Level:** " + data.level + " / 100\n\n**XP:** " + data.xp + " / " + xpForNextLevel + "\n**Benötigt:** " + xpNeeded + " XP\n\n**Progress:**\n" + progressBar + " **" + progress + "%**\n\n🏆 **Total:** " + data.total_xp + "\n🪙 **Coins:** " + data.coins).setThumbnail(target.displayAvatarURL()).setImage(IMAGE)], flags: 64 });
 }
-
-// ─── Coinflip ─────────────────────────────────────────────────────────────────
 
 async function betlabcoinflip(i) {
   const amount = i.options.getInteger("anzahl");
-  
-  if (amount <= 0) {
-    return i.reply({ content: "❌ Die Anzahl muss größer als 0 sein!", flags: 64 });
-  }
-
   const data = await getUserLevel(i.user.id);
-  
-  if (data.coins < amount) {
-    return i.reply({ 
-      content: "❌ Du hast nicht genug Coins!\n🪙 Deine Coins: **" + data.coins + "**", 
-      flags: 64 
-    });
+  if (amount < 1) return i.reply({ content: "❌ Mindestens 1 Coin!", flags: 64 });
+  if (amount > data.coins) return i.reply({ content: "❌ Du hast nur **" + data.coins + " Coins**!", flags: 64 });
+  const won = Math.random() < 0.5;
+  const newCoins = won ? data.coins + amount : data.coins - amount;
+  let bonusXP = 0;
+  if (won) {
+    bonusXP = amount * 5;
+    const newTotalXp = data.total_xp + bonusXP;
+    const { level: newLevel, currentXp } = getLevelFromTotalXp(newTotalXp);
+    await saveUserLevel(i.user.id, currentXp, newLevel, newCoins, newTotalXp);
+  } else {
+    await saveUserLevel(i.user.id, data.xp, data.level, newCoins, data.total_xp);
   }
-
-  // Coinflip
-  const win = Math.random() < 0.5;
-  const newCoins = win ? data.coins + amount : data.coins - amount;
-  
-  await saveUserLevel(i.user.id, data.xp, data.level, newCoins, data.total_messages);
-
-  const embed = new EmbedBuilder()
-    .setColor(win ? 0x57F287 : 0xED4245)
-    .setTitle(win ? "🎉 GEWONNEN!" : "💥 VERLOREN!")
-    .setDescription(
-      "**Coinflip Ergebnis**\n\n" +
-      "🎲 Einsatz: **" + amount + " Coins**\n" +
-      (win ? "✅ Gewinn: **+" + amount + " Coins**" : "❌ Verlust: **-" + amount + " Coins**") + "\n\n" +
-      "🪙 Vorher: **" + data.coins + " Coins**\n" +
-      "🪙 Nachher: **" + newCoins + " Coins**"
-    )
-    .setThumbnail(i.user.displayAvatarURL())
-    .setImage(IMAGE);
-
-  log(i.client, "COINS", "Coinflip",
-    "User: " + i.user.tag + " (" + i.user.id + ")\n" +
-    "Einsatz: " + amount + "\n" +
-    "Ergebnis: " + (win ? "GEWONNEN" : "VERLOREN") + "\n" +
-    "Coins: " + data.coins + " → " + newCoins,
-    i.user
-  );
-
+  const embed = new EmbedBuilder().setColor(won ? 0x57F287 : 0xED4245).setTitle(won ? "🎉 GEWONNEN!" : "💔 VERLOREN!").setDescription("**Einsatz:** " + amount + " Coins\n\n" + (won ? "✅ +" + amount + " Coins!\n🎁 **Bonus:** +" + bonusXP + " XP!" : "❌ -" + amount + " Coins!") + "\n\n**Balance:** " + newCoins + " Coins").setThumbnail(i.user.displayAvatarURL()).setImage(IMAGE);
+  log(i.client, "INFO", "Coinflip", "User: " + i.user.tag + "\nEinsatz: " + amount + "\nErgebnis: " + (won ? "GEWONNEN" : "VERLOREN") + (won ? "\nBonus XP: " + bonusXP : "") + "\nBalance: " + newCoins, i.user);
   return i.reply({ embeds: [embed] });
 }
 
-// ─── Admin Commands ───────────────────────────────────────────────────────────
-
 async function betlabeditcoins(i) {
   const TEAM_ROLE_ID = "963870711678640188";
-  
-  if (!i.member || !i.member.roles.cache.has(TEAM_ROLE_ID)) {
-    log(i.client, "WARN", "Unberechtigter Zugriff",
-      "User: " + i.user.tag + " versuchte /betlabeditcoins ohne Team-Rolle",
-      i.user
-    );
-    return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+  if (!i.member.roles.cache.has(TEAM_ROLE_ID)) {
+    log(i.client, "WARN", "Unberechtigter Zugriff", "User: " + i.user.tag + " versuchte /betlabeditcoins", i.user);
+    return i.reply({ content: "❌ Keine Berechtigung.", flags: 64 });
   }
-
   await i.deferReply({ flags: 64 });
-  
-  const user = i.options.getUser("user");
+  const target = i.options.getUser("user");
   const amount = i.options.getInteger("anzahl");
-  
-  const data = await getUserLevel(user.id);
-  await saveUserLevel(user.id, data.xp, data.level, amount, data.total_messages);
-
-  log(i.client, "COINS", "Coins bearbeitet",
-    "Target: " + user.tag + " (" + user.id + ")\n" +
-    "Vorher: " + data.coins + "\n" +
-    "Nachher: " + amount + "\n" +
-    "Bearbeitet von: " + i.user.tag,
-    i.user
-  );
-
-  return i.editReply("✅ Coins von **" + user.username + "** auf **" + amount + "** gesetzt.");
+  const data = await getUserLevel(target.id);
+  await saveUserLevel(target.id, data.xp, data.level, amount, data.total_xp);
+  log(i.client, "COINS", "Coins editiert", "Ziel: " + target.tag + "\nVorher: " + data.coins + " → Nachher: " + amount, i.user);
+  return i.editReply("✅ Coins von **" + target.username + "** auf **" + amount + "** gesetzt.");
 }
 
-async function betlabeditxp(i) {
-  const TEAM_ROLE_ID = "963870711678640188";
-  
-  if (!i.member || !i.member.roles.cache.has(TEAM_ROLE_ID)) {
-    log(i.client, "WARN", "Unberechtigter Zugriff",
-      "User: " + i.user.tag + " versuchte /betlabeditxp ohne Team-Rolle",
-      i.user
-    );
-    return i.reply({ content: "Keine Berechtigung.", flags: 64 });
+async function betlabtop(i) {
+  await i.deferReply();
+  const top = await getTopUsers(10);
+  let desc = "";
+  const medals = ["🥇", "🥈", "🥉", "4.", "5.", "6.", "7.", "8.", "9.", "10."];
+  for (let idx = 0; idx < top.length; idx++) {
+    const u = top[idx];
+    let username = "Unbekannt";
+    try { username = (await i.client.users.fetch(u.user_id)).username; } catch(e) {}
+    desc += medals[idx] + " **" + username + "**\nLevel: " + u.level + " | XP: " + u.total_xp + "\n\n";
   }
-
-  await i.deferReply({ flags: 64 });
-  
-  const user = i.options.getUser("user");
-  const amount = i.options.getInteger("anzahl");
-  
-  const data = await getUserLevel(user.id);
-  
-  // Neues Level berechnen
-  let newLevel = 1;
-  while (newLevel < 100 && amount >= getXPForLevel(newLevel + 1)) {
-    newLevel++;
-  }
-  
-  await saveUserLevel(user.id, amount, newLevel, data.coins, data.total_messages);
-
-  log(i.client, "XP", "XP bearbeitet",
-    "Target: " + user.tag + " (" + user.id + ")\n" +
-    "Vorher: Level " + data.level + " (" + data.xp + " XP)\n" +
-    "Nachher: Level " + newLevel + " (" + amount + " XP)\n" +
-    "Bearbeitet von: " + i.user.tag,
-    i.user
-  );
-
-  return i.editReply("✅ XP von **" + user.username + "** auf **" + amount + " XP** gesetzt (Level: " + newLevel + ").");
+  return i.editReply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle("🏆 TOP 10 LEVEL").setDescription(desc || "Noch keine Daten.").setImage(IMAGE)] });
 }
 
-// ─── Command Router ───────────────────────────────────────────────────────────
+async function betlabcointop(i) {
+  await i.deferReply();
+  const top = await getTopCoins(10);
+  let desc = "";
+  const medals = ["🥇", "🥈", "🥉", "4.", "5.", "6.", "7.", "8.", "9.", "10."];
+  for (let idx = 0; idx < top.length; idx++) {
+    const u = top[idx];
+    let username = "Unbekannt";
+    try { username = (await i.client.users.fetch(u.user_id)).username; } catch(e) {}
+    desc += medals[idx] + " **" + username + "**\nCoins: " + u.coins + "\n\n";
+  }
+  return i.editReply({ embeds: [new EmbedBuilder().setColor(0xF1C40F).setTitle("🪙 TOP 10 COINS").setDescription(desc || "Noch keine Daten.").setImage(IMAGE)] });
+}
 
-async function handleLevelCommands(i) {
+async function handleCommand(i) {
   const name = i.commandName;
-  if (name === "betlabxp")          { betlabxp(i);          return true; }
-  if (name === "betlabcoins")       { betlabcoins(i);       return true; }
-  if (name === "betlableaderboard") { betlableaderboard(i); return true; }
-  if (name === "betlabcoinflip" || name === "betlabcf") { betlabcoinflip(i); return true; }
-  if (name === "betlabeditcoins")   { betlabeditcoins(i);   return true; }
-  if (name === "betlabeditxp")      { betlabeditxp(i);      return true; }
+  if (name === "betlabcoins") { betlabcoins(i); return true; }
+  if (name === "betlabxp") { betlabxp(i); return true; }
+  if (name === "betlabcoinflip") { betlabcoinflip(i); return true; }
+  if (name === "betlabeditcoins") { betlabeditcoins(i); return true; }
+  if (name === "betlabtop") { betlabtop(i); return true; }
+  if (name === "betlabcointop") { betlabcointop(i); return true; }
   return false;
 }
 
-module.exports = { 
-  handleXPGain, 
-  handleLevelCommands,
-  getXPForLevel 
-};
+module.exports = { handleMessage, handleCommand };
