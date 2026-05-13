@@ -1,0 +1,24 @@
+# ⚠️ CRITICAL FIX - v2.0.1
+
+## Was wurde gefixt:
+
+### Bug #1: restoreTickets Function Name Mismatch
+- ✅ GEFIXT: tickets.js exportiert jetzt `restoreTickets`
+- ✅ GEFIXT: index.js importiert `restoreTickets`
+
+### Bug #2: SyntaxError - Duplicate Variable Declaration  
+- ✅ GEFIXT: Doppelte `const sorted` in betlabinvites entfernt
+- ✅ GEFIXT: betlabinvites und betlabranking Funktionen getrennt
+
+## Diese Version WIRD funktionieren!
+
+Alle Syntax-Fehler sind behoben.
+Alle Function Exports sind korrekt.
+
+Einfach:
+1. Bot stoppen
+2. DIESE Dateien hochladen (alle ersetzen!)
+3. npm install
+4. node index.js
+
+FERTIG! ✅

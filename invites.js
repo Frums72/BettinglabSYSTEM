@@ -179,6 +179,26 @@ async function betlabinvites(i) {
   const rank     = sorted.findIndex(function(u) { return u.user_id === target.id; }) + 1;
   const rankText = rank > 0 ? "#" + rank : "unranked";
 
+  return i.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(COLOR)
+        .setTitle("Invites - Uebersicht")
+        .setDescription(
+          "User: " + target.username + "\n\n" +
+          "Normal: " + normal + "\n" +
+          "BETLAB: " + betlab + " (x2 = " + (betlab * 2) + ")\n\n" +
+          "Gesamtpunkte: **" + total + "**\n\n" +
+          "Ranking: **" + rankText + "**"
+        )
+        .setImage(IMAGE)
+    ],
+    flags: 64
+  });
+}
+
+async function betlabranking(i) {
+  const all    = await getAllUsers();
   const sorted = all
     .map(function(u) {
       return {
