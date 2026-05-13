@@ -44,10 +44,11 @@ async function updateStats(guild, client) {
       }
     }
 
-    // NEU: Nur loggen wenn tatsächlich was geändert wurde
+    // Logging nur wenn tatsächlich upgedatet wurde (nicht bei jedem Join/Leave)
     if (updated && client) {
       log(client, "STATS", "Stats aktualisiert",
-        "Member: " + memberCount + "\nBETLAB: " + betlabCount
+        "Member: " + memberCount + "\n" +
+        "Betlab: " + betlabCount
       );
     }
 

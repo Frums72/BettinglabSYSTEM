@@ -1,108 +1,284 @@
-# Bettinglabbot
+# 🎮 Bettinglabbot v2.0
 
-## 🔧 CHANGELOG - Fixed Version
+Ein vollständiger Discord Bot mit Level-System, Economy, Invites, Tickets, Moderation und Automod.
 
-### ✅ Behobene Fehler
+## ✨ Features
 
-1. **invites.js - Race Condition Fix**
-   - Invite-Cache wird nun NACH dem Vergleich aktualisiert
-   - Verhindert Datenverlust bei langsamen API-Calls
+### 🆙 Level System
+- XP sammeln durch Nachrichten schreiben
+- 100 Level mit exponentieller XP-Kurve  
+- Automatische Level-Rollen
+- Schöne Level-Up Benachrichtigungen
+- Leaderboard System
 
-2. **invites.js - Command-Router Fix**
-   - `/betlabsend` ruft nicht mehr fälschlicherweise Ticket-Panel auf
-   - Jeder Command wird korrekt geroutet
+### 🪙 Economy System
+- Coins verdienen durch Level-Ups
+- Coinflip Minigame
+- Stats Commands
 
-3. **tickets.js - Restart-Sicherheit**
-   - Tickets werden nach Bot-Restart automatisch wiederhergestellt
-   - `userTickets` Map wird beim Start neu befüllt
+### 👥 Invite Tracking
+- Normal & Betlab Invites
+- Automatisches Tracking
+- Leaderboard
+- Join/Leave Logging
 
-4. **logger.js - Besseres Error Handling**
-   - Fehlgeschlagene Logs werden in Console ausgegeben
-   - Keine stillen Fehler mehr
+### 🎫 Ticket System
+- Multi-Kategorie Support
+- Claim & Priority System
+- Auto-Transcripts
+- Bot-Restart sicher
 
-5. **automod.js - RAM-Optimierung**
-   - Cleanup-Intervall von 60s auf 15s reduziert
-   - Max 1000 User im Spam-Tracker (älteste werden gelöscht)
+### 🛡️ Moderation
+- Ban, Unban, Kick
+- Timeout System
+- Warn System mit DM
+- Vollständiges Logging
 
-### 🆕 Neue Features
+### 🤖 Automod
+- Spam-Erkennung
+- Link-Filter
+- Discord Invite-Blocker
+- Automatische Timeouts
 
-1. **Vollständiges Logging**
-   - ✅ Embed-Sends werden geloggt
-   - ✅ Stats-Updates werden geloggt (nur bei Änderung)
-   - ✅ Unberechtigte Zugriffsversuche werden geloggt
-   - ✅ Automod-Actions mit Nachrichteninhalt
+### 📊 Stats & Logging
+- Member & Betlab Counter
+- Alle Moderations-Aktionen
+- Level-Ups & Coins
+- Permission-Fails
 
-2. **Log-Typen**
-   - EMBED (Rosa) - Embed-Builder
-   - STATS (Cyan) - Stats-Updates
+## 🚀 Installation
 
-### ⚙️ Installation
-
+### 1. Dependencies
 ```bash
 npm install
 ```
 
-### 🔑 Umgebungsvariablen
-
+### 2. Umgebungsvariablen (.env)
 ```env
-TOKEN=dein_discord_token
+TOKEN=dein_bot_token
 CLIENT_ID=deine_client_id
 SUPABASE_URL=deine_supabase_url
 SUPABASE_KEY=dein_supabase_key
 ```
 
-### 🚀 Start
+### 3. Datenbank Setup
+- Öffne Supabase SQL Editor
+- Führe `SETUP_DATABASE.sql` aus
 
+### 4. Config anpassen
+
+#### Level-Rollen (levels.js)
+```javascript
+const LEVEL_ROLES = {
+  5:  "ROLE_ID",
+  10: "ROLE_ID",
+  25: "ROLE_ID",
+  50: "ROLE_ID",
+  75: "ROLE_ID",
+  100: "ROLE_ID"
+};
+```
+
+#### Channel & Rollen IDs
+- `stats.js` - Stats Channel IDs & Rollen
+- `tickets.js` - Ticket Category & Support Role
+- `logger.js` - Log Channel ID
+- Alle Module - `TEAM_ROLE_ID`
+
+### 5. Bot starten
 ```bash
 npm start
 ```
 
-### 📊 Supabase Tabellen
+## 📋 Commands
 
-**invites:**
-```sql
-CREATE TABLE invites (
-  user_id TEXT PRIMARY KEY,
-  normal INTEGER DEFAULT 0,
-  betlab INTEGER DEFAULT 0
-);
+### Level & Economy
+```
+/betlabxp [user]           - XP Stats
+/betlabcoins [user]        - Coin Stats
+/betlableaderboard         - Top 10 Ranking
+/betlabcoinflip <anzahl>   - Coinflip
+/betlabcf <anzahl>         - Coinflip (Kurzform)
 ```
 
-**join_tracker:**
-```sql
-CREATE TABLE join_tracker (
-  member_id TEXT PRIMARY KEY,
-  inviter_id TEXT NOT NULL,
-  code TEXT NOT NULL,
-  joined_at TIMESTAMP NOT NULL
-);
+### Invites
+```
+/betlabinvites [user]      - Invite Stats
+/betlabranking             - Top 5 Invites
+/betlabsendbetlab          - Betlab Invites vergeben
 ```
 
-### 🎯 Features
+### Moderation
+```
+/betlabban <user>          - User bannen
+/betlabkick <user>         - User kicken
+/betlabtimeout <user>      - User timeouten
+/betlabwarn <user>         - User verwarnen
+/betlabclearchat <anzahl>  - Nachrichten löschen
+```
 
-- ✅ Invite-Tracking (Normal & Betlab)
-- ✅ Ticket-System mit Transcript
-- ✅ Embed-Builder
-- ✅ Automod (Spam, Links, Discord-Invites)
-- ✅ Stats-Channels (Member/Betlab Count)
-- ✅ Vollständiges Log-System
-- ✅ Restart-sicher
+### System
+```
+/betlabhelp                - Alle Commands
+/betlabsend                - Embed Builder
+/betlabsendticketpanel     - Ticket Panel
+```
 
-### 📝 Commands
+### Admin
+```
+/betlabeditcoins           - Coins setzen
+/betlabeditxp              - XP setzen
+/betlabinvitesedit         - Invites setzen
+```
 
-- `/betlabhelp` - Alle Commands
-- `/betlabsend` - Embed Builder
-- `/betlabsendticketpanel` - Ticket Panel
-- `/betlabinvites [user]` - Invite Stats
-- `/betlabranking` - Top 5 Ranking
-- `/betlabsendbetlab` - Betlab Invites vergeben
-- `/betlabinvitesedit` - Invites setzen
-- `/betlabinviteclear` - Invites reset
-- `/betlabclearchat` - Chat leeren
+## 🗂️ Dateistruktur
+
+```
+├── index.js           # Hauptdatei
+├── invites.js         # Invite System
+├── levels.js          # Level & Economy
+├── moderation.js      # Moderation Commands
+├── tickets.js         # Ticket System
+├── automod.js         # Automod
+├── embedbuilder.js    # Embed Builder
+├── stats.js           # Stats Channels
+├── logger.js          # Logging System
+├── db.js              # Supabase Client
+├── package.json       # Dependencies
+└── SETUP_DATABASE.sql # DB Schema
+```
+
+## ⚙️ Konfiguration
+
+### XP System (levels.js)
+```javascript
+const XP_PER_MESSAGE = { min: 15, max: 25 };
+const XP_COOLDOWN_MS = 60000;  // 1 Minute
+const COINS_PER_LEVELUP = 1;
+```
+
+### Automod (automod.js)
+```javascript
+const SPAM_THRESHOLD = 5;       // Nachrichten
+const SPAM_WINDOW_MS = 5000;    // 5 Sekunden
+const TIMEOUT_SPAM_MS = 5 * 60 * 1000;   // 5 Min
+const TIMEOUT_LINKS_MS = 10 * 60 * 1000; // 10 Min
+```
+
+### Permissions (alle Dateien)
+```javascript
+const TEAM_ROLE_ID = "963870711678640188";
+```
+
+## 📊 Datenbank Schema
+
+### levels
+```sql
+user_id         TEXT PRIMARY KEY
+xp              INTEGER
+level           INTEGER (1-100)
+coins           INTEGER
+total_messages  INTEGER
+```
+
+### invites
+```sql
+user_id  TEXT PRIMARY KEY
+normal   INTEGER
+betlab   INTEGER
+```
+
+### join_tracker
+```sql
+member_id   TEXT PRIMARY KEY
+inviter_id  TEXT
+code        TEXT
+joined_at   TIMESTAMP
+```
+
+## 🔐 Benötigte Permissions
+
+### Bot Permissions
+- Manage Roles
+- Manage Channels
+- Kick Members
+- Ban Members
+- Timeout Members
+- Manage Messages
+- Send Messages
+- Embed Links
+- Attach Files
+- Read Message History
+- View Channel
+
+### Intents
+- Guilds
+- GuildMembers
+- GuildInvites
+- GuildMessages
+- MessageContent
+
+## 🆘 Troubleshooting
+
+### Commands werden nicht angezeigt
+- Bot neustarten
+- 5 Minuten warten
+- CLIENT_ID prüfen
+
+### Level-Rollen funktionieren nicht
+- Rollen-IDs in levels.js prüfen
+- Bot höher als Ziel-Rollen
+- "Manage Roles" Permission
+
+### XP wird nicht vergeben
+- MessageContent Intent aktiviert?
+- 1 Minute Cooldown beachten
+- Bots bekommen kein XP
+
+### Logging funktioniert nicht
+- LOG_CHANNEL_ID in logger.js prüfen
+- Bot hat Send Messages in Log-Channel?
+
+## 📈 Performance
+
+- XP Cooldown verhindert Spam
+- Cleanup alle 15s (Automod) / 5 Min (XP)
+- DB Indexes für schnelle Queries
+- Race Conditions behoben
+
+## 🔄 Updates
+
+Von Version 1.1 → 2.0:
+1. Alte Dateien ersetzen
+2. `SETUP_DATABASE.sql` ausführen
+3. Level-Rollen IDs eintragen
+4. Bot neustarten
+
+Keine Daten gehen verloren! ✅
+
+## 📝 Changelog
+
+Siehe `CHANGELOG.md` für alle Änderungen.
+
+## 🎯 Roadmap
+
+- [ ] Warn System mit DB Tracking
+- [ ] Custom XP Multiplier Events
+- [ ] Shop System
+- [ ] Daily Rewards
+- [ ] Reaction Roles
+
+## 👥 Support
+
+Bei Fragen oder Problemen:
+1. Logs prüfen (`/betlabhelp`)
+2. Supabase Logs prüfen
+3. Console Output prüfen
+
+## 📄 License
+
+MIT License - Frei verwendbar
 
 ---
 
-## 🐛 Bekannte Einschränkungen
-
-- **stats.js** funktioniert nur für EINEN Server (hardcoded IDs)
-- Wenn mehrere Server: Config in DB oder Umgebungsvariablen auslagern
+**Version 2.0** • Made with ❤️ for Bettinglab

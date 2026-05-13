@@ -52,7 +52,6 @@ function buildPreviewButtons(sessionId) {
   );
 }
 
-// Step 1: /betlabsend -> direkt Modal mit Channel-ID + Embed-Felder
 async function startEmbedBuilder(i) {
   if (!isTeam(i)) {
     log(i.client, "WARN", "Unberechtigter Zugriff",
@@ -127,7 +126,6 @@ async function startEmbedBuilder(i) {
   await i.showModal(modal);
 }
 
-// Step 2: Modal submitted -> Vorschau
 async function handleModal(i, sessionId) {
   const session = sessions.get(sessionId);
   if (!session) return i.reply({ content: "Session abgelaufen. Bitte /betlabsend nochmal verwenden.", flags: 64 });
@@ -138,7 +136,6 @@ async function handleModal(i, sessionId) {
   const image     = i.fields.getTextInputValue("eb_image");
   const color     = i.fields.getTextInputValue("eb_color");
 
-  // Channel ID validieren
   const channel = i.guild.channels.cache.get(channelId) ||
     await i.guild.channels.fetch(channelId).catch(function() { return null; });
 
@@ -163,7 +160,6 @@ async function handleModal(i, sessionId) {
   });
 }
 
-// Step 3: Bearbeiten -> Modal nochmal mit bestehenden Werten
 async function openEditModal(i, sessionId) {
   const session = sessions.get(sessionId);
   if (!session) return i.reply({ content: "Session abgelaufen.", flags: 64 });
@@ -223,7 +219,6 @@ async function openEditModal(i, sessionId) {
   await i.showModal(modal);
 }
 
-// Step 4: Senden
 async function handleSend(i, sessionId) {
   const session = sessions.get(sessionId);
   if (!session) return i.reply({ content: "Session abgelaufen.", flags: 64 });
@@ -235,11 +230,11 @@ async function handleSend(i, sessionId) {
 
   await channel.send({ embeds: [buildPreviewEmbed(session)] });
 
-  // NEU: Logging
+  // LOGGING HINZUGEFÜGT
   log(i.client, "EMBED", "Embed gesendet",
-    "Channel: #" + channel.name + " (" + channel.id + ")\n" +
     "Titel: " + session.title + "\n" +
-    "Von: " + i.user.tag,
+    "Channel: #" + channel.name + " (" + channel.id + ")\n" +
+    "Beschreibung (first 100): " + session.description.substring(0, 100),
     i.user
   );
 
@@ -257,7 +252,6 @@ async function handleSend(i, sessionId) {
   });
 }
 
-// Step 5: Abbrechen
 async function handleCancel(i, sessionId) {
   sessions.delete(sessionId);
   await i.update({
@@ -272,7 +266,6 @@ async function handleCancel(i, sessionId) {
   });
 }
 
-// ================= MAIN HANDLER =================
 async function handleEmbedBuilder(i) {
   if (i.isButton()) {
     if (i.customId.startsWith("eb_edit_")) {

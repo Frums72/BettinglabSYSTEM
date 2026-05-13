@@ -234,18 +234,42 @@ async function betlabhelp(i) {
     embeds: [
       new EmbedBuilder()
         .setColor(COLOR)
-        .setTitle("BETLAB COMMANDS")
+        .setTitle("📋 BETLAB COMMANDS")
         .setDescription(
-          "/betlabsend - Embed Builder\n" +
-          "/betlabsendticketpanel - Ticket Panel\n\n" +
-          "/betlabinvites [user] - Invite Stats\n" +
-          "/betlabranking - Top 5\n" +
-          "/betlabsendbetlab - Betlab Invites vergeben\n" +
-          "/betlabinvitesedit - Invites setzen\n" +
-          "/betlabinviteclear - Invites reset\n" +
-          "/betlabclearchat - Chat leeren"
+          "**🎫 System**\n" +
+          "`/betlabsend` - Embed Builder\n" +
+          "`/betlabsendticketpanel` - Ticket Panel senden\n\n" +
+          
+          "**👥 Invites**\n" +
+          "`/betlabinvites [user]` - Invite Stats anzeigen\n" +
+          "`/betlabranking` - Top 5 Invite Ranking\n" +
+          "`/betlabsendbetlab <user> <amount>` - Betlab Invites vergeben\n" +
+          "`/betlabinvitesedit <user> <type> <amount>` - Invites setzen\n" +
+          "`/betlabinviteclear <user>` - Invites zurücksetzen\n\n" +
+          
+          "**🏆 Level & Coins**\n" +
+          "`/betlabxp [user]` - XP und Level anzeigen\n" +
+          "`/betlabcoins [user]` - Coins anzeigen\n" +
+          "`/betlableaderboard` - Level Ranking Top 10\n" +
+          "`/betlabcoinflip <anzahl>` - Coinflip spielen\n" +
+          "`/betlabcf <anzahl>` - Coinflip (Kurzform)\n" +
+          "`/betlabeditcoins <user> <anzahl>` - Coins setzen (Team)\n" +
+          "`/betlabeditxp <user> <anzahl>` - XP setzen (Team)\n\n" +
+          
+          "**🛡️ Moderation**\n" +
+          "`/betlabban <user> [grund]` - User bannen\n" +
+          "`/betlabunban <userid> [grund]` - User entbannen\n" +
+          "`/betlabkick <user> [grund]` - User kicken\n" +
+          "`/betlabtimeout <user> <dauer> [grund]` - User timeouten\n" +
+          "`/betlabuntimeout <user>` - Timeout aufheben\n" +
+          "`/betlabwarn <user> <grund>` - User verwarnen\n" +
+          "`/betlabclearchat <anzahl>` - Nachrichten löschen\n\n" +
+          
+          "💡 **Level System:** Schreibe Nachrichten um XP zu sammeln!\n" +
+          "🪙 **Coins:** Du erhältst 1 Coin pro Level-Up!"
         )
         .setImage(IMAGE)
+        .setFooter({ text: "BETLAB Bot v2.0 • Level & Coins System" })
     ],
     flags: 64
   });
