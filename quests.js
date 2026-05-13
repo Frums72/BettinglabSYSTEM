@@ -35,7 +35,6 @@ async function generateDailyQuests() {
     const used = new Set();
     const quests = [];
     
-    // 3 light - keine Duplikate
     for (let i = 0; i < 3; i++) {
       let t;
       do { t = types[Math.floor(Math.random() * types.length)]; } while (used.has(t));
@@ -43,13 +42,11 @@ async function generateDailyQuests() {
       quests.push({ date: today, quest_type: t, difficulty: "light", requirement: QUEST_TYPES[t].l, reward_coins: 5, reward_xp: 25, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].l}x` });
     }
     
-    // 1 medium
     let mt;
     do { mt = types[Math.floor(Math.random() * types.length)]; } while (used.has(mt));
     used.add(mt);
     quests.push({ date: today, quest_type: mt, difficulty: "medium", requirement: QUEST_TYPES[mt].m, reward_coins: 10, reward_xp: 50, description: `${QUEST_TYPES[mt].name}: ${QUEST_TYPES[mt].m}x` });
     
-    // 1 hard
     let ht;
     do { ht = types[Math.floor(Math.random() * types.length)]; } while (used.has(ht));
     quests.push({ date: today, quest_type: ht, difficulty: "hard", requirement: QUEST_TYPES[ht].h, reward_coins: 20, reward_xp: 100, description: `${QUEST_TYPES[ht].name}: ${QUEST_TYPES[ht].h}x` });
@@ -88,7 +85,6 @@ async function generateWeeklyQuests() {
     const used = new Set();
     const quests = [];
     
-    // 5 light - keine Duplikate
     for (let i = 0; i < 5; i++) {
       let t;
       do { t = types[Math.floor(Math.random() * types.length)]; } while (used.has(`l_${t}`));
@@ -96,7 +92,6 @@ async function generateWeeklyQuests() {
       quests.push({ week_start: ws, quest_type: t, difficulty: "light", requirement: QUEST_TYPES[t].wl, reward_coins: 10, reward_xp: 50, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wl}x` });
     }
     
-    // 3 medium
     for (let i = 0; i < 3; i++) {
       let t;
       do { t = types[Math.floor(Math.random() * types.length)]; } while (used.has(`m_${t}`));
@@ -104,7 +99,6 @@ async function generateWeeklyQuests() {
       quests.push({ week_start: ws, quest_type: t, difficulty: "medium", requirement: QUEST_TYPES[t].wm, reward_coins: 25, reward_xp: 100, description: `${QUEST_TYPES[t].name}: ${QUEST_TYPES[t].wm}x` });
     }
     
-    // 2 hard
     for (let i = 0; i < 2; i++) {
       let t;
       do { t = types[Math.floor(Math.random() * types.length)]; } while (used.has(`h_${t}`));
@@ -124,209 +118,118 @@ async function generateWeeklyQuests() {
 }
 
 async function postDailyQuests(client) {
-  console.log("📋 Generiere Daily Quests...");
+  console.log("📋 Poste Daily Quests...");
   await generateDailyQuests();
-  const today = new Date().toISOString().split("T")[0];
-  const { data: quests } = await supabase.from("daily_quests").select("*").eq("date", today);
-  console.log(`📋 Daily Quests geladen: ${quests ? quests.length : 0}`);
-  if (!quests || quests.length === 0) {
-    console.log("❌ Keine Daily Quests gefunden!");
-    return;
-  }
   
   const ch = client.channels.cache.get(DAILY_CHANNEL) || await client.channels.fetch(DAILY_CHANNEL);
-  if (!ch) {
-    console.log("❌ Daily Quest Channel nicht gefunden!");
-    return;
-  }
-  console.log("✅ Poste Daily Quests...");
-  
-  let desc = "**📋 Tägliche Aufgaben**\n\nErledige Aufgaben durch Aktivität auf dem Server!\n*Updates alle 3 Minuten automatisch.*\n\n";
-  const rows = [];
-  
-  for (const q of quests) {
-    const emoji = q.difficulty === "light" ? "🟢" : q.difficulty === "medium" ? "🟡" : "🔴";
-    desc += `${emoji} **${q.description}**\n`;
-    desc += `└ Belohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
-    
-    const btn = new ButtonBuilder()
-      .setCustomId(`claim_daily_${q.id}`)
-      .setLabel(q.description.split(":")[0])
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true);
-    
-    if (rows.length === 0) rows.push(new ActionRowBuilder().addComponents(btn));
-    else if (rows[rows.length - 1].components.length < 5) rows[rows.length - 1].addComponents(btn);
-    else rows.push(new ActionRowBuilder().addComponents(btn));
-  }
-  
-  const bonusBtn = new ButtonBuilder().setCustomId("claim_daily_bonus").setLabel("🎁 BONUS").setStyle(ButtonStyle.Primary).setDisabled(true);
-  rows.push(new ActionRowBuilder().addComponents(bonusBtn));
-  
-  desc += "**🎁 Bonus:** 15 Coins + 100 XP + 10% Boost (2h)";
+  if (!ch) return;
   
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle("📋 Daily Quests")
-    .setDescription(desc)
-    .setFooter({ text: "Grüne Buttons = Abholbereit!" });
+    .setDescription("**Klicke auf den Button um deine Quests zu sehen!**\n\nJeder sieht nur seine eigenen Aufgaben.\nUpdates automatisch alle 3 Minuten.")
+    .setFooter({ text: "Nur du siehst deinen Fortschritt!" });
   
-  const msg = await ch.send({ embeds: [embed], components: rows });
+  const btn = new ButtonBuilder()
+    .setCustomId("show_daily_quests")
+    .setLabel("📋 Meine Daily Quests")
+    .setStyle(ButtonStyle.Primary);
+  
+  const row = new ActionRowBuilder().addComponents(btn);
+  
+  const msg = await ch.send({ embeds: [embed], components: [row] });
   dailyMessageId = msg.id;
-  
-  // Auto-Update alle 3 Min
-  setInterval(() => updateQuestDisplay(client, "daily"), 180000);
 }
 
 async function postWeeklyQuests(client) {
-  console.log("📅 Generiere Weekly Quests...");
+  console.log("📅 Poste Weekly Quests...");
   await generateWeeklyQuests();
-  const now = new Date();
-  const mon = new Date(now);
-  mon.setDate(now.getDate() - now.getDay() + 1);
-  const ws = mon.toISOString().split("T")[0];
-  
-  const { data: quests } = await supabase.from("weekly_quests").select("*").eq("week_start", ws);
-  console.log(`📅 Weekly Quests geladen: ${quests ? quests.length : 0}`);
-  if (!quests || quests.length === 0) {
-    console.log("❌ Keine Weekly Quests gefunden!");
-    return;
-  }
   
   const ch = client.channels.cache.get(DAILY_CHANNEL) || await client.channels.fetch(DAILY_CHANNEL);
-  if (!ch) {
-    console.log("❌ Weekly Quest Channel nicht gefunden!");
-    return;
-  }
-  console.log("✅ Poste Weekly Quests...");
+  if (!ch) return;
   
-  let desc = "**📅 Wöchentliche Aufgaben (Montag-Montag)**\n\nErledige Aufgaben durch Aktivität!\n*Updates alle 3 Minuten automatisch.*\n\n";
+  const embed = new EmbedBuilder()
+    .setColor(0x9B59B6)
+    .setTitle("📅 Weekly Quests")
+    .setDescription("**Klicke auf den Button um deine Quests zu sehen!**\n\nJeder sieht nur seine eigenen Aufgaben.\nUpdates automatisch alle 3 Minuten.")
+    .setFooter({ text: "Nur du siehst deinen Fortschritt!" });
+  
+  const btn = new ButtonBuilder()
+    .setCustomId("show_weekly_quests")
+    .setLabel("📅 Meine Weekly Quests")
+    .setStyle(ButtonStyle.Primary);
+  
+  const row = new ActionRowBuilder().addComponents(btn);
+  
+  const msg = await ch.send({ embeds: [embed], components: [row] });
+  weeklyMessageId = msg.id;
+}
+
+async function showQuests(i, type) {
+  const isDaily = type === "daily";
+  const today = isDaily ? new Date().toISOString().split("T")[0] : null;
+  const ws = !isDaily ? (() => { const n = new Date(); const m = new Date(n); m.setDate(n.getDate() - n.getDay() + 1); return m.toISOString().split("T")[0]; })() : null;
+  
+  const qTable = isDaily ? "daily_quests" : "weekly_quests";
+  const pTable = isDaily ? "daily_quest_progress" : "weekly_quest_progress";
+  const filter = isDaily ? { date: today } : { week_start: ws };
+  
+  const { data: quests } = await supabase.from(qTable).select("*").match(filter);
+  if (!quests || quests.length === 0) {
+    return i.reply({ content: "❌ Keine Quests gefunden!", flags: 64 });
+  }
+  
+  let desc = isDaily 
+    ? "**📋 Deine Daily Quests**\n\n"
+    : "**📅 Deine Weekly Quests**\n\n";
+  
   const rows = [];
+  let allCompleted = true;
   
   for (const q of quests) {
+    const { data: p } = await supabase.from(pTable).select("*").eq("user_id", i.user.id).eq("quest_id", q.id).single();
+    const progress = p ? p.progress : 0;
+    const completed = p ? p.completed : false;
+    const claimed = p ? p.claimed : false;
+    
+    if (!claimed) allCompleted = false;
+    
     const emoji = q.difficulty === "light" ? "🟢" : q.difficulty === "medium" ? "🟡" : "🔴";
-    desc += `${emoji} **${q.description}**\n`;
-    desc += `└ Belohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
+    const status = claimed ? "✅" : completed ? "🎁" : "📝";
+    
+    desc += `${status} ${emoji} **${q.description}**\n`;
+    desc += `└ **${progress}/${q.requirement}** | ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
     
     const btn = new ButtonBuilder()
-      .setCustomId(`claim_weekly_${q.id}`)
-      .setLabel(q.description.split(":")[0])
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true);
+      .setCustomId(`claim_${type}_${q.id}`)
+      .setLabel(q.description.split(":")[0].substring(0, 20))
+      .setStyle(completed && !claimed ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setDisabled(!completed || claimed);
     
     if (rows.length === 0) rows.push(new ActionRowBuilder().addComponents(btn));
     else if (rows[rows.length - 1].components.length < 5) rows[rows.length - 1].addComponents(btn);
     else rows.push(new ActionRowBuilder().addComponents(btn));
   }
   
-  const bonusBtn = new ButtonBuilder().setCustomId("claim_weekly_bonus").setLabel("🎁 BONUS").setStyle(ButtonStyle.Primary).setDisabled(true);
+  const bonusReady = allCompleted && quests.length === (isDaily ? 5 : 10);
+  const bonusBtn = new ButtonBuilder()
+    .setCustomId(`claim_${type}_bonus`)
+    .setLabel("🎁 BONUS")
+    .setStyle(bonusReady ? ButtonStyle.Primary : ButtonStyle.Secondary)
+    .setDisabled(!bonusReady);
   rows.push(new ActionRowBuilder().addComponents(bonusBtn));
   
-  desc += "**🎁 Bonus:** 50 Coins + 500 XP + 25% Boost (12h)";
+  desc += isDaily 
+    ? "**🎁 Alle:** 15 Coins + 100 XP + 10% Boost (2h)"
+    : "**🎁 Alle:** 50 Coins + 500 XP + 25% Boost (12h)";
   
   const embed = new EmbedBuilder()
-    .setColor(0x9B59B6)
-    .setTitle("📅 Weekly Quests")
+    .setColor(isDaily ? 0x5865F2 : 0x9B59B6)
+    .setTitle(isDaily ? "📋 Daily Quests" : "📅 Weekly Quests")
     .setDescription(desc)
-    .setFooter({ text: "Grüne Buttons = Abholbereit!" });
+    .setFooter({ text: "Grün = Abholbereit! | 📝 = In Progress | ✅ = Erledigt" });
   
-  const msg = await ch.send({ embeds: [embed], components: rows });
-  weeklyMessageId = msg.id;
-  
-  // Auto-Update alle 3 Min
-  setInterval(() => updateQuestDisplay(client, "weekly"), 180000);
-}
-
-async function updateQuestDisplay(client, type) {
-  const ch = client.channels.cache.get(DAILY_CHANNEL);
-  if (!ch) return;
-  
-  const msgId = type === "daily" ? dailyMessageId : weeklyMessageId;
-  if (!msgId) return;
-  
-  try {
-    const msg = await ch.messages.fetch(msgId);
-    
-    if (type === "daily") {
-      const today = new Date().toISOString().split("T")[0];
-      const { data: quests } = await supabase.from("daily_quests").select("*").eq("date", today);
-      if (!quests) return;
-      
-      let desc = "**📋 Tägliche Aufgaben**\n\nErledige Aufgaben durch Aktivität auf dem Server!\n*Updates alle 3 Minuten automatisch.*\n\n";
-      const rows = [];
-      
-      for (const q of quests) {
-        const { data: progs } = await supabase.from("daily_quest_progress").select("*").eq("quest_id", q.id);
-        const completedUsers = progs ? progs.filter(p => p.completed && !p.claimed).length : 0;
-        
-        const emoji = q.difficulty === "light" ? "🟢" : q.difficulty === "medium" ? "🟡" : "🔴";
-        desc += `${emoji} **${q.description}**`;
-        if (completedUsers > 0) desc += ` *(${completedUsers} bereit)*`;
-        desc += `\n└ Belohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
-        
-        const hasCompleted = completedUsers > 0;
-        const btn = new ButtonBuilder()
-          .setCustomId(`claim_daily_${q.id}`)
-          .setLabel(q.description.split(":")[0])
-          .setStyle(hasCompleted ? ButtonStyle.Success : ButtonStyle.Secondary)
-          .setDisabled(!hasCompleted);
-        
-        if (rows.length === 0) rows.push(new ActionRowBuilder().addComponents(btn));
-        else if (rows[rows.length - 1].components.length < 5) rows[rows.length - 1].addComponents(btn);
-        else rows.push(new ActionRowBuilder().addComponents(btn));
-      }
-      
-      const bonusBtn = new ButtonBuilder().setCustomId("claim_daily_bonus").setLabel("🎁 BONUS").setStyle(ButtonStyle.Primary).setDisabled(true);
-      rows.push(new ActionRowBuilder().addComponents(bonusBtn));
-      
-      desc += "**🎁 Bonus:** 15 Coins + 100 XP + 10% Boost (2h)";
-      
-      const embed = new EmbedBuilder().setColor(0x5865F2).setTitle("📋 Daily Quests").setDescription(desc).setFooter({ text: "Grüne Buttons = Abholbereit!" });
-      await msg.edit({ embeds: [embed], components: rows });
-    } else {
-      const now = new Date();
-      const mon = new Date(now);
-      mon.setDate(now.getDate() - now.getDay() + 1);
-      const ws = mon.toISOString().split("T")[0];
-      
-      const { data: quests } = await supabase.from("weekly_quests").select("*").eq("week_start", ws);
-      if (!quests) return;
-      
-      let desc = "**📅 Wöchentliche Aufgaben (Montag-Montag)**\n\nErledige Aufgaben durch Aktivität!\n*Updates alle 3 Minuten automatisch.*\n\n";
-      const rows = [];
-      
-      for (const q of quests) {
-        const { data: progs } = await supabase.from("weekly_quest_progress").select("*").eq("quest_id", q.id);
-        const completedUsers = progs ? progs.filter(p => p.completed && !p.claimed).length : 0;
-        
-        const emoji = q.difficulty === "light" ? "🟢" : q.difficulty === "medium" ? "🟡" : "🔴";
-        desc += `${emoji} **${q.description}**`;
-        if (completedUsers > 0) desc += ` *(${completedUsers} bereit)*`;
-        desc += `\n└ Belohnung: ${q.reward_coins} Coins + ${q.reward_xp} XP\n\n`;
-        
-        const hasCompleted = completedUsers > 0;
-        const btn = new ButtonBuilder()
-          .setCustomId(`claim_weekly_${q.id}`)
-          .setLabel(q.description.split(":")[0])
-          .setStyle(hasCompleted ? ButtonStyle.Success : ButtonStyle.Secondary)
-          .setDisabled(!hasCompleted);
-        
-        if (rows.length === 0) rows.push(new ActionRowBuilder().addComponents(btn));
-        else if (rows[rows.length - 1].components.length < 5) rows[rows.length - 1].addComponents(btn);
-        else rows.push(new ActionRowBuilder().addComponents(btn));
-      }
-      
-      const bonusBtn = new ButtonBuilder().setCustomId("claim_weekly_bonus").setLabel("🎁 BONUS").setStyle(ButtonStyle.Primary).setDisabled(true);
-      rows.push(new ActionRowBuilder().addComponents(bonusBtn));
-      
-      desc += "**🎁 Bonus:** 50 Coins + 500 XP + 25% Boost (12h)";
-      
-      const embed = new EmbedBuilder().setColor(0x9B59B6).setTitle("📅 Weekly Quests").setDescription(desc).setFooter({ text: "Grüne Buttons = Abholbereit!" });
-      await msg.edit({ embeds: [embed], components: rows });
-    }
-  } catch(e) {
-    console.error("Update Error:", e);
-  }
+  return i.reply({ embeds: [embed], components: rows, flags: 64 });
 }
 
 async function trackProgress(userId, type, amount = 1) {
@@ -365,6 +268,14 @@ async function trackProgress(userId, type, amount = 1) {
   }
 }
 
+async function handleQuestButton(i, client) {
+  if (i.customId === "show_daily_quests") {
+    return showQuests(i, "daily");
+  } else if (i.customId === "show_weekly_quests") {
+    return showQuests(i, "weekly");
+  }
+}
+
 async function handleQuestClaim(i, client) {
   const parts = i.customId.split("_");
   const type = parts[1];
@@ -377,7 +288,7 @@ async function handleQuestClaim(i, client) {
     const { data: q } = await supabase.from(table).select("*").eq("id", questId).single();
     const { data: p } = await supabase.from(pTable).select("*").eq("user_id", i.user.id).eq("quest_id", questId).single();
     
-    if (!p || !p.completed || p.claimed) return i.reply({ content: "❌ Quest nicht verfügbar oder bereits abgeholt!", flags: 64 });
+    if (!p || !p.completed || p.claimed) return i.reply({ content: "❌ Quest nicht verfügbar!", flags: 64 });
     
     await supabase.from(pTable).update({ claimed: true }).eq("user_id", i.user.id).eq("quest_id", questId);
     
@@ -386,8 +297,9 @@ async function handleQuestClaim(i, client) {
       await supabase.from("levels").update({ coins: lvl.coins + q.reward_coins, total_xp: lvl.total_xp + q.reward_xp }).eq("user_id", i.user.id);
     }
     
+    await trackProgress(i.user.id, "coins_earn", q.reward_coins);
+    
     const embed = new EmbedBuilder().setColor(0x57F287).setTitle("✅ Quest abgeschlossen!").setDescription(`🪙 **+${q.reward_coins} Coins**\n✨ **+${q.reward_xp} XP**`);
-    await updateQuestDisplay(client, type);
     return i.reply({ embeds: [embed], flags: 64 });
   } else {
     const bonus = type === "daily" ? { coins: 15, xp: 100, boost: 10, h: 2 } : { coins: 50, xp: 500, boost: 25, h: 12 };
@@ -403,7 +315,7 @@ async function handleQuestClaim(i, client) {
     const { data: userP } = await supabase.from(pTable).select("*").eq("user_id", i.user.id).in("quest_id", allQ.map(q => q.id));
     
     if (!userP || userP.length !== allQ.length || !userP.every(p => p.completed && p.claimed)) {
-      return i.reply({ content: "❌ Du musst erst alle Quests abholen!", flags: 64 });
+      return i.reply({ content: "❌ Erst alle Quests abholen!", flags: 64 });
     }
     
     const { data: lvl } = await supabase.from("levels").select("*").eq("user_id", i.user.id).single();
@@ -418,7 +330,9 @@ async function handleQuestClaim(i, client) {
       }).eq("user_id", i.user.id);
     }
     
-    const embed = new EmbedBuilder().setColor(0xF1C40F).setTitle("🎊 BONUS ABGEHOLT!").setDescription(`🪙 **+${bonus.coins} Coins**\n✨ **+${bonus.xp} XP**\n⚡ **+${bonus.boost}% XP Boost** (${bonus.h}h aktiv!)`);
+    await trackProgress(i.user.id, "coins_earn", bonus.coins);
+    
+    const embed = new EmbedBuilder().setColor(0xF1C40F).setTitle("🎊 BONUS!").setDescription(`🪙 **+${bonus.coins} Coins**\n✨ **+${bonus.xp} XP**\n⚡ **+${bonus.boost}% Boost** (${bonus.h}h!)`);
     
     try {
       const ch = client.channels.cache.get(LEVELUP_CHANNEL) || await client.channels.fetch(LEVELUP_CHANNEL);
@@ -429,4 +343,4 @@ async function handleQuestClaim(i, client) {
   }
 }
 
-module.exports = { postDailyQuests, postWeeklyQuests, updateQuestDisplay, trackProgress, handleQuestClaim };
+module.exports = { postDailyQuests, postWeeklyQuests, handleQuestButton, trackProgress, handleQuestClaim };

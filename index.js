@@ -15,7 +15,7 @@ const { handleMessage: handleAutomod } = require("./automod");
 const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand } = require("./levels");
 const { handleCommand: handleModCommand } = require("./moderation");
 const { postDailyRewards, handleDailyButton } = require("./dailyrewards");
-const { postDailyQuests, postWeeklyQuests, handleQuestClaim } = require("./quests");
+const { postDailyQuests, postWeeklyQuests, handleQuestButton, handleQuestClaim } = require("./quests");
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -202,6 +202,12 @@ client.on("interactionCreate", async function(i) {
     // Daily Rewards Buttons
     if (i.customId && i.customId.startsWith("daily_claim_")) {
       await handleDailyButton(i);
+      return;
+    }
+    
+    // Show Quest Buttons
+    if (i.customId && (i.customId === "show_daily_quests" || i.customId === "show_weekly_quests")) {
+      await handleQuestButton(i, client);
       return;
     }
     
