@@ -213,11 +213,26 @@ async function betlabcf(i) {
   
   await i.deferReply();
   
-  const anim=await i.editReply("🪙 Münze wird geworfen...");
-  await new Promise(r=>setTimeout(r,1000));
-  await anim.edit("🪙 Die Münze dreht sich...");
-  await new Promise(r=>setTimeout(r,1000));
+  // Animation mit Emojis
+  const embed1 = new EmbedBuilder()
+    .setColor(0xF1C40F)
+    .setTitle("🪙 COINFLIP")
+    .setDescription(`**Einsatz:** ${amt} Coins\n\n🎲 Die Münze wird geworfen...`)
+    .setThumbnail(i.user.displayAvatarURL());
   
+  await i.editReply({ embeds: [embed1] });
+  await new Promise(r=>setTimeout(r,1500));
+  
+  const embed2 = new EmbedBuilder()
+    .setColor(0xF1C40F)
+    .setTitle("🪙 COINFLIP")
+    .setDescription(`**Einsatz:** ${amt} Coins\n\n🌀 Die Münze dreht sich...`)
+    .setThumbnail(i.user.displayAvatarURL());
+  
+  await i.editReply({ embeds: [embed2] });
+  await new Promise(r=>setTimeout(r,1500));
+  
+  // Ergebnis berechnen
   const won=Math.random()<0.5;
   const newC=won?d.coins+amt:d.coins-amt;
   
@@ -241,12 +256,26 @@ async function betlabcf(i) {
   await trackProgress(i.user.id,"coinflips",1);
   if(won)await trackProgress(i.user.id,"coins_earn",amt);
   
-  const e=new EmbedBuilder().setColor(won?0x57F287:0xED4245).setTitle(won?"🎉 GEWONNEN!":"💔 VERLOREN!")
-    .setDescription(`**Einsatz:** ${amt} Coins\n\n${won?`✅ +${amt} Coins!${bonusXP>0?`\n🎁 **Bonus:** +${bonusXP} XP!`:''}`:`❌ -${amt} Coins!`}\n\n**Balance:** ${newC} Coins`)
-    .setThumbnail(i.user.displayAvatarURL()).setImage(IMAGE);
+  // Ergebnis Embed
+  let resultDesc = `**Einsatz:** ${amt} Coins\n\n`;
+  if(won) {
+    resultDesc += `# 🎉 GEWONNEN!\n\n✅ **+${amt} Coins**`;
+    if(bonusXP>0) resultDesc += `\n🎁 **Bonus:** +${bonusXP} XP`;
+    resultDesc += `\n\n💰 **Neue Balance:** ${newC} Coins`;
+  } else {
+    resultDesc += `# 💔 VERLOREN!\n\n❌ **-${amt} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
+  }
+  
+  const resultEmbed = new EmbedBuilder()
+    .setColor(won ? 0x57F287 : 0xED4245)
+    .setTitle(won ? "🎊 JACKPOT!" : "😢 SCHADE!")
+    .setDescription(resultDesc)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setImage(IMAGE)
+    .setFooter({ text: won ? "Glückwunsch! 🍀" : "Nächstes Mal klappt's!" });
   
   log(i.client,"INFO","Coinflip",`User: ${i.user.tag}\nEinsatz: ${amt}\nErgebnis: ${won?"WIN":"LOSS"}${bonusXP>0?`\nBonus: ${bonusXP} XP`:''}\nBalance: ${newC}`,i.user);
-  return anim.edit({content:null,embeds:[e]});
+  return i.editReply({ embeds: [resultEmbed] });
 }
 
 async function betlabranking(i) {
