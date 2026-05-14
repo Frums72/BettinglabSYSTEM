@@ -154,8 +154,7 @@ client.once("clientReady", async function() {
     await restoreTickets(guild, client);
   }
   
-  // Auto-Post Daily/Weekly TEMPORÄR DEAKTIVIERT ZUM TESTEN
-  /*
+  // Auto-Post Daily/Weekly
   if (!postsAlreadyDone) {
     postsAlreadyDone = true;
     console.log("📋 Starte Auto-Post...");
@@ -183,8 +182,6 @@ client.once("clientReady", async function() {
   } else {
     console.log("⚠️ Posts bereits gemacht, überspringe...");
   }
-  */
-  console.log("⚠️ Auto-Posts deaktiviert zum Testen!");
   
   log(client, "SUCCESS", "Bot gestartet", "Tag: " + client.user.tag);
 });
@@ -250,7 +247,7 @@ client.on("interactionCreate", async function(i) {
     }
     
     // Blackjack Buttons
-    if (i.customId && (i.customId === "bj_hit" || i.customId === "bj_stand")) {
+    if (i.customId && (i.customId === "bj_hit" || i.customId === "bj_stand" || i.customId === "bj_double")) {
       await handleBlackjackButton(i, client);
       return;
     }

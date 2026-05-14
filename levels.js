@@ -438,11 +438,29 @@ async function betlabdice(i) {
   const winAmount=won?amt*5:0;
   const newC=won?d.coins+winAmount:d.coins-amt;
   
-  await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
+  // XP Bonus bei Gewinn
+  let bonusXP=0;
+  const now=Date.now();
+  const last=cfXpCd.get(i.user.id);
+  
+  if(won&&(!last||now-last>=COINFLIP_XP_CD)){
+    bonusXP=Math.min(amt*5,MAX_CF_XP);
+    cfXpCd.set(i.user.id,now);
+    const b=getBoost(d);
+    const xpG=Math.floor(bonusXP*(1+b/100));
+    const ntx=d.total_xp+xpG;
+    const{level:newL,currentXp:cx}=getLevelFromTotalXp(ntx);
+    await saveUser(i.user.id,cx,newL,newC,ntx,d.xp_boost,d.xp_boost_until);
+    await trackProgress(i.user.id,"xp",xpG);
+  }else{
+    await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
+  }
   
   let resultDesc=`**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${guess}\n**Gewürfelt:** ${DICE_EMOJI[rolled-1]} **${rolled}**\n\n`;
   if(won){
-    resultDesc+=`# 🎉 RICHTIG GERATEN!\n\n✅ **+${winAmount} Coins** (5x Gewinn!)\n\n💰 **Neue Balance:** ${newC} Coins`;
+    resultDesc+=`# 🎉 RICHTIG GERATEN!\n\n✅ **+${winAmount} Coins** (5x Gewinn!)`;
+    if(bonusXP>0)resultDesc+=`\n🎁 **Bonus:** +${bonusXP} XP`;
+    resultDesc+=`\n\n💰 **Neue Balance:** ${newC} Coins`;
   }else{
     resultDesc+=`# 💔 FALSCH!\n\n❌ **-${amt} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
   }
@@ -539,7 +557,8 @@ async function betlabblackjack(i) {
   
   const row=new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("bj_hit").setLabel("🎴 HIT").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId("bj_stand").setLabel("✋ STAND").setStyle(ButtonStyle.Danger)
+    new ButtonBuilder().setCustomId("bj_stand").setLabel("✋ STAND").setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId("bj_double").setLabel("⚡ DOUBLE").setStyle(ButtonStyle.Primary)
   );
   
   if(pVal===21){
@@ -589,6 +608,31 @@ async function handleBlackjackButton(i,client){
     );
     
     return await i.update({embeds:[embed],components:[row]});
+  }
+  
+  if(i.customId==="bj_double"){
+    // Check genug Coins
+    if(coins<bet*2){
+      return await i.reply({content:"❌ Nicht genug Coins zum Verdoppeln!",flags:64});
+    }
+    
+    // Verdoppel Einsatz, ziehe 1 Karte, dann Stand
+    game.bet = bet * 2;
+    playerHand.push(drawCard());
+    const pVal=handValue(playerHand);
+    
+    bjGames.delete(i.user.id);
+    
+    if(pVal>21){
+      return await bjBust(i,playerHand,dealerHand,bet*2,coins);
+    }
+    
+    // Dealer zieht
+    while(handValue(dealerHand)<17){
+      dealerHand.push(drawCard());
+    }
+    
+    return await bjResolve(i,playerHand,dealerHand,bet*2,coins);
   }
   
   if(i.customId==="bj_stand"){
@@ -653,30 +697,48 @@ async function bjResolve(i,playerHand,dealerHand,bet,coins){
   const dVal=handValue(dealerHand);
   const d=await getUser(i.user.id);
   
-  let result,winAmount,newC;
+  let result,winAmount,newC,bonusXP=0;
   
   if(dVal>21||pVal>dVal){
     result="WIN";
     winAmount=bet*2;
     newC=coins+bet;
+    
+    // XP Bonus bei Gewinn
+    const now=Date.now();
+    const last=cfXpCd.get(i.user.id);
+    if(!last||now-last>=COINFLIP_XP_CD){
+      bonusXP=Math.min(bet*5,MAX_CF_XP);
+      cfXpCd.set(i.user.id,now);
+      const b=getBoost(d);
+      const xpG=Math.floor(bonusXP*(1+b/100));
+      const ntx=d.total_xp+xpG;
+      const{level:newL,currentXp:cx}=getLevelFromTotalXp(ntx);
+      await saveUser(i.user.id,cx,newL,newC,ntx,d.xp_boost,d.xp_boost_until);
+      await trackProgress(i.user.id,"xp",xpG);
+    }else{
+      await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
+    }
   }else if(pVal===dVal){
     result="PUSH";
     winAmount=0;
     newC=coins;
+    await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
   }else{
     result="LOSS";
     winAmount=0;
     newC=coins-bet;
+    await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
   }
-  
-  await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
   
   let desc=`**Einsatz:** ${bet} Coins\n\n`;
   desc+=`**Deine Hand:** ${showHand(playerHand)}\n**Wert:** ${pVal}\n\n`;
   desc+=`**Dealer:** ${showHand(dealerHand)}\n**Wert:** ${dVal}\n\n`;
   
   if(result==="WIN"){
-    desc+=`# 🎉 GEWONNEN!\n\n✅ **+${bet} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
+    desc+=`# 🎉 GEWONNEN!\n\n✅ **+${bet} Coins**`;
+    if(bonusXP>0)desc+=`\n🎁 **Bonus:** +${bonusXP} XP`;
+    desc+=`\n\n💰 **Neue Balance:** ${newC} Coins`;
   }else if(result==="PUSH"){
     desc+=`# 🤝 UNENTSCHIEDEN!\n\n↔️ **Einsatz zurück**\n\n💰 **Balance:** ${newC} Coins`;
   }else{
@@ -691,7 +753,7 @@ async function bjResolve(i,playerHand,dealerHand,bet,coins){
     .setImage(IMAGE)
     .setFooter({text:result==="WIN"?"Glückwunsch! 🍀":result==="PUSH"?"Kein Gewinner!":"Nächstes Mal klappt's!"});
   
-  log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: ${result}\nBalance: ${newC}`,i.user);
+  log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: ${result}${bonusXP>0?`\nBonus: ${bonusXP} XP`:''}\nBalance: ${newC}`,i.user);
   return i.update({embeds:[embed],components:[]});
 }
 
