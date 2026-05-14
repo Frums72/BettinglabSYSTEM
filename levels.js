@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const supabase = require("./db");
 const { log } = require("./logger");
 const { trackProgress } = require("./quests");
