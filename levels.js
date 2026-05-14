@@ -55,7 +55,12 @@ async function getUser(uid) {
 }
 
 async function saveUser(uid,xp,l,c,tx,b=0,bu=null) {
-  await supabase.from("levels").upsert({user_id:uid,xp,level:l,coins:c,total_xp:tx,xp_boost:b,xp_boost_until:bu});
+  const { data, error } = await supabase.from("levels").upsert({user_id:uid,xp,level:l,coins:c,total_xp:tx,xp_boost:b,xp_boost_until:bu});
+  if(error) {
+    console.error("❌ saveUser FEHLER:", error);
+    return false;
+  }
+  return true;
 }
 
 function getBoost(d) {
