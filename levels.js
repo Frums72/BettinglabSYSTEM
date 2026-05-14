@@ -500,9 +500,9 @@ async function betlabblackjack(i) {
   const amt=i.options.getInteger("anzahl");
   const d=await getUser(i.user.id);
   
-  if(amt<1)return i.reply({content:"❌ Mindestens 1 Coin!",flags:64});
-  if(amt>d.coins)return i.reply({content:`❌ Du hast nur **${d.coins} Coins**!`,flags:64});
-  if(bjGames.has(i.user.id))return i.reply({content:"❌ Du hast bereits ein Spiel laufen!",flags:64});
+  if(amt<1)return await i.reply({content:"❌ Mindestens 1 Coin!",flags:64});
+  if(amt>d.coins)return await i.reply({content:`❌ Du hast nur **${d.coins} Coins**!`,flags:64});
+  if(bjGames.has(i.user.id))return await i.reply({content:"❌ Du hast bereits ein Spiel laufen!",flags:64});
   
   const playerHand=[drawCard(),drawCard()];
   const dealerHand=[drawCard(),drawCard()];
@@ -530,15 +530,15 @@ async function betlabblackjack(i) {
   
   if(pVal===21){
     bjGames.delete(i.user.id);
-    return bjBlackjack(i,playerHand,dealerHand,amt,d);
+    return await bjBlackjack(i,playerHand,dealerHand,amt,d);
   }
   
-  return i.reply({embeds:[embed],components:[row]});
+  return await i.reply({embeds:[embed],components:[row]});
 }
 
 async function handleBlackjackButton(i,client){
   const game=bjGames.get(i.user.id);
-  if(!game)return i.reply({content:"❌ Kein aktives Spiel!",flags:64});
+  if(!game)return await i.reply({content:"❌ Kein aktives Spiel!",flags:64});
   
   const{playerHand,dealerHand,bet,coins}=game;
   
@@ -548,7 +548,7 @@ async function handleBlackjackButton(i,client){
     
     if(pVal>21){
       bjGames.delete(i.user.id);
-      return bjBust(i,playerHand,dealerHand,bet,coins);
+      return await bjBust(i,playerHand,dealerHand,bet,coins);
     }
     
     let desc=`**Einsatz:** ${bet} Coins\n\n`;
@@ -567,7 +567,7 @@ async function handleBlackjackButton(i,client){
       new ButtonBuilder().setCustomId("bj_stand").setLabel("✋ STAND").setStyle(ButtonStyle.Danger)
     );
     
-    return i.update({embeds:[embed],components:[row]});
+    return await i.update({embeds:[embed],components:[row]});
   }
   
   if(i.customId==="bj_stand"){
@@ -577,7 +577,7 @@ async function handleBlackjackButton(i,client){
       dealerHand.push(drawCard());
     }
     
-    return bjResolve(i,playerHand,dealerHand,bet,coins);
+    return await bjResolve(i,playerHand,dealerHand,bet,coins);
   }
 }
 
