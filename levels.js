@@ -386,10 +386,291 @@ async function handleCommand(i) {
   if(n==="betlabcoins"){betlabcoins(i);return true;}
   if(n==="betlabxp"){betlabxp(i);return true;}
   if(n==="betlabcoinflip"){betlabcf(i);return true;}
+  if(n==="betlabdice"){betlabdice(i);return true;}
+  if(n==="betlabblackjack"){betlabblackjack(i);return true;}
   if(n==="betlabranking"){betlabranking(i);return true;}
   if(n==="betlabeditcoins"){betlabeditcoins(i);return true;}
   if(n==="betlabeditxp"){betlabeditxp(i);return true;}
   return false;
 }
 
-module.exports={handleMessage,handleReaction,handleCommand};
+module.exports={handleMessage,handleReaction,handleCommand,handleBlackjackButton};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DICE GAME
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const DICE_EMOJI = ["⚀","⚁","⚂","⚃","⚄","⚅"];
+
+async function betlabdice(i) {
+  const amt=i.options.getInteger("anzahl");
+  const guess=i.options.getInteger("zahl");
+  const d=await getUser(i.user.id);
+  
+  if(amt<1)return i.reply({content:"❌ Mindestens 1 Coin!",flags:64});
+  if(amt>d.coins)return i.reply({content:`❌ Du hast nur **${d.coins} Coins**!`,flags:64});
+  if(guess<1||guess>6)return i.reply({content:"❌ Zahl muss zwischen 1-6 sein!",flags:64});
+  
+  await i.deferReply();
+  
+  // Animation
+  const embed1=new EmbedBuilder()
+    .setColor(0x3498DB)
+    .setTitle("🎲 DICE GAME")
+    .setDescription(`**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${guess}\n\n🎲 Der Würfel rollt...`)
+    .setThumbnail(i.user.displayAvatarURL());
+  
+  await i.editReply({embeds:[embed1]});
+  await new Promise(r=>setTimeout(r,1500));
+  
+  const embed2=new EmbedBuilder()
+    .setColor(0x3498DB)
+    .setTitle("🎲 DICE GAME")
+    .setDescription(`**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${guess}\n\n🌀 Der Würfel dreht sich...`)
+    .setThumbnail(i.user.displayAvatarURL());
+  
+  await i.editReply({embeds:[embed2]});
+  await new Promise(r=>setTimeout(r,1500));
+  
+  // Ergebnis
+  const rolled=Math.floor(Math.random()*6)+1;
+  const won=rolled===guess;
+  const winAmount=won?amt*5:0;
+  const newC=won?d.coins+winAmount:d.coins-amt;
+  
+  await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
+  
+  let resultDesc=`**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${guess}\n**Gewürfelt:** ${DICE_EMOJI[rolled-1]} **${rolled}**\n\n`;
+  if(won){
+    resultDesc+=`# 🎉 RICHTIG GERATEN!\n\n✅ **+${winAmount} Coins** (5x Gewinn!)\n\n💰 **Neue Balance:** ${newC} Coins`;
+  }else{
+    resultDesc+=`# 💔 FALSCH!\n\n❌ **-${amt} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
+  }
+  
+  const resultEmbed=new EmbedBuilder()
+    .setColor(won?0x57F287:0xED4245)
+    .setTitle(won?"🎊 JACKPOT!":"😢 SCHADE!")
+    .setDescription(resultDesc)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setImage(IMAGE)
+    .setFooter({text:won?"5x Gewinn! 🍀":"Nächstes Mal klappt's!"});
+  
+  log(i.client,"INFO","Dice",`User: ${i.user.tag}\nEinsatz: ${amt}\nGewählt: ${guess}\nGewürfelt: ${rolled}\nErgebnis: ${won?"WIN":"LOSS"}\nBalance: ${newC}`,i.user);
+  return i.editReply({embeds:[resultEmbed]});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BLACKJACK
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const CARD_SUITS=["♠️","♥️","♣️","♦️"];
+const CARD_VALUES=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+
+function drawCard(){
+  const suit=CARD_SUITS[Math.floor(Math.random()*4)];
+  const value=CARD_VALUES[Math.floor(Math.random()*13)];
+  return{suit,value};
+}
+
+function cardValue(card){
+  if(card.value==="A")return 11;
+  if(["J","Q","K"].includes(card.value))return 10;
+  return parseInt(card.value);
+}
+
+function handValue(hand){
+  let val=0;
+  let aces=0;
+  for(const c of hand){
+    val+=cardValue(c);
+    if(c.value==="A")aces++;
+  }
+  while(val>21&&aces>0){val-=10;aces--;}
+  return val;
+}
+
+function showHand(hand,hideFirst=false){
+  if(hideFirst)return`🂠 **??** | ${hand[1].suit} **${hand[1].value}**`;
+  return hand.map(c=>`${c.suit} **${c.value}**`).join(" | ");
+}
+
+const bjGames=new Map();
+
+async function betlabblackjack(i) {
+  const amt=i.options.getInteger("anzahl");
+  const d=await getUser(i.user.id);
+  
+  if(amt<1)return i.reply({content:"❌ Mindestens 1 Coin!",flags:64});
+  if(amt>d.coins)return i.reply({content:`❌ Du hast nur **${d.coins} Coins**!`,flags:64});
+  if(bjGames.has(i.user.id))return i.reply({content:"❌ Du hast bereits ein Spiel laufen!",flags:64});
+  
+  const playerHand=[drawCard(),drawCard()];
+  const dealerHand=[drawCard(),drawCard()];
+  
+  bjGames.set(i.user.id,{playerHand,dealerHand,bet:amt,coins:d.coins});
+  
+  const pVal=handValue(playerHand);
+  const dVal=handValue(dealerHand);
+  
+  let desc=`**Einsatz:** ${amt} Coins\n\n`;
+  desc+=`**Deine Hand:** ${showHand(playerHand)}\n**Wert:** ${pVal}\n\n`;
+  desc+=`**Dealer:** ${showHand(dealerHand,true)}\n\n`;
+  
+  const embed=new EmbedBuilder()
+    .setColor(0xE74C3C)
+    .setTitle("🃏 BLACKJACK")
+    .setDescription(desc)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setFooter({text:"Hit = Karte ziehen | Stand = Stehen bleiben"});
+  
+  const row=new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("bj_hit").setLabel("🎴 HIT").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("bj_stand").setLabel("✋ STAND").setStyle(ButtonStyle.Danger)
+  );
+  
+  if(pVal===21){
+    bjGames.delete(i.user.id);
+    return bjBlackjack(i,playerHand,dealerHand,amt,d);
+  }
+  
+  return i.reply({embeds:[embed],components:[row]});
+}
+
+async function handleBlackjackButton(i,client){
+  const game=bjGames.get(i.user.id);
+  if(!game)return i.reply({content:"❌ Kein aktives Spiel!",flags:64});
+  
+  const{playerHand,dealerHand,bet,coins}=game;
+  
+  if(i.customId==="bj_hit"){
+    playerHand.push(drawCard());
+    const pVal=handValue(playerHand);
+    
+    if(pVal>21){
+      bjGames.delete(i.user.id);
+      return bjBust(i,playerHand,dealerHand,bet,coins);
+    }
+    
+    let desc=`**Einsatz:** ${bet} Coins\n\n`;
+    desc+=`**Deine Hand:** ${showHand(playerHand)}\n**Wert:** ${pVal}\n\n`;
+    desc+=`**Dealer:** ${showHand(dealerHand,true)}\n\n`;
+    
+    const embed=new EmbedBuilder()
+      .setColor(0xE74C3C)
+      .setTitle("🃏 BLACKJACK")
+      .setDescription(desc)
+      .setThumbnail(i.user.displayAvatarURL())
+      .setFooter({text:"Hit = Karte ziehen | Stand = Stehen bleiben"});
+    
+    const row=new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("bj_hit").setLabel("🎴 HIT").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("bj_stand").setLabel("✋ STAND").setStyle(ButtonStyle.Danger)
+    );
+    
+    return i.update({embeds:[embed],components:[row]});
+  }
+  
+  if(i.customId==="bj_stand"){
+    bjGames.delete(i.user.id);
+    
+    while(handValue(dealerHand)<17){
+      dealerHand.push(drawCard());
+    }
+    
+    return bjResolve(i,playerHand,dealerHand,bet,coins);
+  }
+}
+
+async function bjBlackjack(i,playerHand,dealerHand,bet,d){
+  const winAmount=Math.floor(bet*1.5);
+  const newC=d.coins+winAmount;
+  await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
+  
+  let desc=`**Einsatz:** ${bet} Coins\n\n`;
+  desc+=`**Deine Hand:** ${showHand(playerHand)}\n**Wert:** 21\n\n`;
+  desc+=`**Dealer:** ${showHand(dealerHand)}\n**Wert:** ${handValue(dealerHand)}\n\n`;
+  desc+=`# 🎉 BLACKJACK!\n\n✅ **+${winAmount} Coins** (1.5x Gewinn!)\n\n💰 **Neue Balance:** ${newC} Coins`;
+  
+  const embed=new EmbedBuilder()
+    .setColor(0x57F287)
+    .setTitle("🎊 BLACKJACK!")
+    .setDescription(desc)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setImage(IMAGE)
+    .setFooter({text:"BLACKJACK! 🍀"});
+  
+  log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: BLACKJACK\nBalance: ${newC}`,i.user);
+  return i.reply({embeds:[embed]});
+}
+
+async function bjBust(i,playerHand,dealerHand,bet,coins){
+  const newC=coins-bet;
+  const d=await getUser(i.user.id);
+  await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
+  
+  const pVal=handValue(playerHand);
+  
+  let desc=`**Einsatz:** ${bet} Coins\n\n`;
+  desc+=`**Deine Hand:** ${showHand(playerHand)}\n**Wert:** ${pVal}\n\n`;
+  desc+=`**Dealer:** ${showHand(dealerHand,true)}\n\n`;
+  desc+=`# 💥 BUST!\n\n❌ **-${bet} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
+  
+  const embed=new EmbedBuilder()
+    .setColor(0xED4245)
+    .setTitle("💥 BUST!")
+    .setDescription(desc)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setImage(IMAGE)
+    .setFooter({text:"Über 21! Nächstes Mal!"});
+  
+  log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: BUST\nBalance: ${newC}`,i.user);
+  return i.update({embeds:[embed],components:[]});
+}
+
+async function bjResolve(i,playerHand,dealerHand,bet,coins){
+  const pVal=handValue(playerHand);
+  const dVal=handValue(dealerHand);
+  const d=await getUser(i.user.id);
+  
+  let result,winAmount,newC;
+  
+  if(dVal>21||pVal>dVal){
+    result="WIN";
+    winAmount=bet*2;
+    newC=coins+bet;
+  }else if(pVal===dVal){
+    result="PUSH";
+    winAmount=0;
+    newC=coins;
+  }else{
+    result="LOSS";
+    winAmount=0;
+    newC=coins-bet;
+  }
+  
+  await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
+  
+  let desc=`**Einsatz:** ${bet} Coins\n\n`;
+  desc+=`**Deine Hand:** ${showHand(playerHand)}\n**Wert:** ${pVal}\n\n`;
+  desc+=`**Dealer:** ${showHand(dealerHand)}\n**Wert:** ${dVal}\n\n`;
+  
+  if(result==="WIN"){
+    desc+=`# 🎉 GEWONNEN!\n\n✅ **+${bet} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
+  }else if(result==="PUSH"){
+    desc+=`# 🤝 UNENTSCHIEDEN!\n\n↔️ **Einsatz zurück**\n\n💰 **Balance:** ${newC} Coins`;
+  }else{
+    desc+=`# 💔 VERLOREN!\n\n❌ **-${bet} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
+  }
+  
+  const embed=new EmbedBuilder()
+    .setColor(result==="WIN"?0x57F287:result==="PUSH"?0xF1C40F:0xED4245)
+    .setTitle(result==="WIN"?"🎊 GEWONNEN!":result==="PUSH"?"🤝 UNENTSCHIEDEN":"😢 VERLOREN")
+    .setDescription(desc)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setImage(IMAGE)
+    .setFooter({text:result==="WIN"?"Glückwunsch! 🍀":result==="PUSH"?"Kein Gewinner!":"Nächstes Mal klappt's!"});
+  
+  log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: ${result}\nBalance: ${newC}`,i.user);
+  return i.update({embeds:[embed],components:[]});
+}
+

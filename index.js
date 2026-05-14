@@ -12,7 +12,7 @@ const { log } = require("./logger");
 const { updateStats } = require("./stats");
 const { startEmbedBuilder, handleEmbedBuilder } = require("./embedbuilder");
 const { handleMessage: handleAutomod } = require("./automod");
-const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand } = require("./levels");
+const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand, handleBlackjackButton } = require("./levels");
 const { handleCommand: handleModCommand } = require("./moderation");
 const { postDailyRewards, handleDailyButton } = require("./dailyrewards");
 const { postDailyQuests, postWeeklyQuests, handleQuestButton, handleQuestClaim } = require("./quests");
@@ -100,6 +100,15 @@ const commands = [
   new SlashCommandBuilder()
     .setName("betlabcoinflip")
     .setDescription("Coinflip - Glücksspiel!")
+    .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName("betlabdice")
+    .setDescription("Dice - Rate die Zahl! (1-6)")
+    .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1))
+    .addIntegerOption(o => o.setName("zahl").setDescription("Welche Zahl? (1-6)").setRequired(true).setMinValue(1).setMaxValue(6)),
+  new SlashCommandBuilder()
+    .setName("betlabblackjack")
+    .setDescription("Blackjack - Komm näher an 21!")
     .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1)),
   new SlashCommandBuilder()
     .setName("betlabeditcoins")
@@ -208,6 +217,12 @@ client.on("interactionCreate", async function(i) {
     // Daily Rewards Buttons
     if (i.customId && i.customId.startsWith("daily_claim_")) {
       await handleDailyButton(i);
+      return;
+    }
+    
+    // Blackjack Buttons
+    if (i.customId && (i.customId === "bj_hit" || i.customId === "bj_stand")) {
+      await handleBlackjackButton(i, client);
       return;
     }
     
