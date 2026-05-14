@@ -152,10 +152,28 @@ client.once("clientReady", async function() {
     await restoreTickets(guild, client);
   }
   
-  // Auto-Post Daily/Weekly
-  await postDailyRewards(client);
-  await postDailyQuests(client);
-  await postWeeklyQuests(client);
+  // Auto-Post Daily/Weekly NUR EINMAL
+  console.log("📋 Starte Auto-Post...");
+  try {
+    await postDailyRewards(client);
+    console.log("✅ Daily Rewards gepostet");
+  } catch(e) {
+    console.error("❌ Daily Rewards Fehler:", e);
+  }
+  
+  try {
+    await postDailyQuests(client);
+    console.log("✅ Daily Quests gepostet");
+  } catch(e) {
+    console.error("❌ Daily Quests Fehler:", e);
+  }
+  
+  try {
+    await postWeeklyQuests(client);
+    console.log("✅ Weekly Quests gepostet");
+  } catch(e) {
+    console.error("❌ Weekly Quests Fehler:", e);
+  }
   
   log(client, "SUCCESS", "Bot gestartet", "Tag: " + client.user.tag);
 });
