@@ -497,13 +497,26 @@ function showHand(hand,hideFirst=false){
 const bjGames=new Map();
 
 async function betlabblackjack(i) {
+  console.log("🃏 Blackjack Command erhalten von:", i.user.tag);
   const amt=i.options.getInteger("anzahl");
+  console.log("💰 Einsatz:", amt);
   const d=await getUser(i.user.id);
+  console.log("👤 User Coins:", d.coins);
   
-  if(amt<1)return await i.reply({content:"❌ Mindestens 1 Coin!",flags:64});
-  if(amt>d.coins)return await i.reply({content:`❌ Du hast nur **${d.coins} Coins**!`,flags:64});
-  if(bjGames.has(i.user.id))return await i.reply({content:"❌ Du hast bereits ein Spiel laufen!",flags:64});
+  if(amt<1){
+    console.log("❌ Zu wenig Coins");
+    return await i.reply({content:"❌ Mindestens 1 Coin!",flags:64});
+  }
+  if(amt>d.coins){
+    console.log("❌ Nicht genug Coins");
+    return await i.reply({content:`❌ Du hast nur **${d.coins} Coins**!`,flags:64});
+  }
+  if(bjGames.has(i.user.id)){
+    console.log("❌ Spiel läuft bereits");
+    return await i.reply({content:"❌ Du hast bereits ein Spiel laufen!",flags:64});
+  }
   
+  console.log("✅ Starte Blackjack Spiel...");
   const playerHand=[drawCard(),drawCard()];
   const dealerHand=[drawCard(),drawCard()];
   
@@ -511,6 +524,7 @@ async function betlabblackjack(i) {
   
   const pVal=handValue(playerHand);
   const dVal=handValue(dealerHand);
+  console.log("🎴 Player:", pVal, "| Dealer:", dVal);
   
   let desc=`**Einsatz:** ${amt} Coins\n\n`;
   desc+=`**Deine Hand:** ${showHand(playerHand)}\n**Wert:** ${pVal}\n\n`;
@@ -529,11 +543,18 @@ async function betlabblackjack(i) {
   );
   
   if(pVal===21){
+    console.log("🎊 BLACKJACK!");
     bjGames.delete(i.user.id);
     return await bjBlackjack(i,playerHand,dealerHand,amt,d);
   }
   
-  return await i.reply({embeds:[embed],components:[row]});
+  console.log("📤 Sende Reply...");
+  try {
+    await i.reply({embeds:[embed],components:[row]});
+    console.log("✅ Reply gesendet!");
+  } catch(e) {
+    console.error("❌ Reply Fehler:", e);
+  }
 }
 
 async function handleBlackjackButton(i,client){

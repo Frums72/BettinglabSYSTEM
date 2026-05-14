@@ -143,6 +143,8 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
   }
 })();
 
+let postsAlreadyDone = false;
+
 client.once("clientReady", async function() {
   console.log("🚀 Online als " + client.user.tag);
   
@@ -153,26 +155,32 @@ client.once("clientReady", async function() {
   }
   
   // Auto-Post Daily/Weekly NUR EINMAL
-  console.log("📋 Starte Auto-Post...");
-  try {
-    await postDailyRewards(client);
-    console.log("✅ Daily Rewards gepostet");
-  } catch(e) {
-    console.error("❌ Daily Rewards Fehler:", e);
-  }
-  
-  try {
-    await postDailyQuests(client);
-    console.log("✅ Daily Quests gepostet");
-  } catch(e) {
-    console.error("❌ Daily Quests Fehler:", e);
-  }
-  
-  try {
-    await postWeeklyQuests(client);
-    console.log("✅ Weekly Quests gepostet");
-  } catch(e) {
-    console.error("❌ Weekly Quests Fehler:", e);
+  if (!postsAlreadyDone) {
+    postsAlreadyDone = true;
+    console.log("📋 Starte Auto-Post...");
+    
+    try {
+      await postDailyRewards(client);
+      console.log("✅ Daily Rewards gepostet");
+    } catch(e) {
+      console.error("❌ Daily Rewards Fehler:", e);
+    }
+    
+    try {
+      await postDailyQuests(client);
+      console.log("✅ Daily Quests gepostet");
+    } catch(e) {
+      console.error("❌ Daily Quests Fehler:", e);
+    }
+    
+    try {
+      await postWeeklyQuests(client);
+      console.log("✅ Weekly Quests gepostet");
+    } catch(e) {
+      console.error("❌ Weekly Quests Fehler:", e);
+    }
+  } else {
+    console.log("⚠️ Posts bereits gemacht, überspringe...");
   }
   
   log(client, "SUCCESS", "Bot gestartet", "Tag: " + client.user.tag);
