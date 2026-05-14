@@ -301,7 +301,14 @@ async function betlabeditcoins(i) {
   const t=i.options.getUser("user");
   const amt=i.options.getInteger("anzahl");
   const d=await getUser(t.id);
-  await saveUser(t.id,d.xp,d.level,amt,d.total_xp,d.xp_boost,d.xp_boost_until);
+  
+  // User in DB erstellen falls nicht existiert
+  if(!d.user_id) {
+    await saveUser(t.id,0,0,amt,0,0,null);
+  } else {
+    await saveUser(t.id,d.xp,d.level,amt,d.total_xp,d.xp_boost,d.xp_boost_until);
+  }
+  
   log(i.client,"COINS","Coins editiert",`Ziel: ${t.tag}\nVorher: ${d.coins} → ${amt}`,i.user);
   return i.editReply(`✅ Coins von **${t.username}** auf **${amt}** gesetzt.`);
 }
@@ -314,7 +321,13 @@ async function betlabeditxp(i) {
   const d=await getUser(t.id);
   const oldL=d.level;
   const{level:newL,currentXp:cx}=getLevelFromTotalXp(tx);
-  await saveUser(t.id,cx,newL,d.coins,tx,d.xp_boost,d.xp_boost_until);
+  
+  // User in DB erstellen falls nicht existiert
+  if(!d.user_id) {
+    await saveUser(t.id,cx,newL,0,tx,0,null);
+  } else {
+    await saveUser(t.id,cx,newL,d.coins,tx,d.xp_boost,d.xp_boost_until);
+  }
   
   if(newL!==oldL){
     const m=i.guild.members.cache.get(t.id)||await i.guild.members.fetch(t.id);

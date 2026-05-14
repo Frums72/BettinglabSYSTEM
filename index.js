@@ -43,7 +43,6 @@ const commands = [
     .setName("betlabinvites")
     .setDescription("Invite-Stats anzeigen")
     .addUserOption(o => o.setName("user").setDescription("User (optional)")),
-  new SlashCommandBuilder().setName("betlabranking").setDescription("Top 5 Invite Ranking"),
   new SlashCommandBuilder()
     .setName("betlabinvitesedit")
     .setDescription("Invites manuell setzen")
@@ -112,8 +111,15 @@ const commands = [
     .setDescription("XP manuell setzen")
     .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
     .addIntegerOption(o => o.setName("xp").setDescription("Total XP Anzahl").setRequired(true)),
-  new SlashCommandBuilder().setName("betlabtop").setDescription("Top 10 Level Ranking"),
-  new SlashCommandBuilder().setName("betlabcointop").setDescription("Top 10 Coins Ranking")
+  new SlashCommandBuilder()
+    .setName("betlabranking")
+    .setDescription("TOP 5 Rankings")
+    .addStringOption(o => o.setName("type").setDescription("Typ").setRequired(true)
+      .addChoices(
+        { name: "Invites", value: "invites" },
+        { name: "Coins", value: "coins" },
+        { name: "XP/Level", value: "xp" }
+      ))
   
 ].map(c => c.toJSON());
 
