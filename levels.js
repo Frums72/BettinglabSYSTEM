@@ -329,17 +329,32 @@ async function betlabeditcoins(i) {
   await i.deferReply({flags:64});
   const t=i.options.getUser("user");
   const amt=i.options.getInteger("anzahl");
+  console.log("💰 EDIT COINS - User:", t.tag, "| Neue Coins:", amt);
+  
   const d=await getUser(t.id);
+  console.log("📊 Vorher - Coins:", d.coins, "| Level:", d.level, "| XP:", d.total_xp);
   
   // User in DB erstellen falls nicht existiert
   if(!d.user_id) {
+    console.log("🆕 User existiert nicht, erstelle neu...");
     await saveUser(t.id,0,0,amt,0,0,null);
   } else {
+    console.log("✏️ Update existierenden User...");
     await saveUser(t.id,d.xp,d.level,amt,d.total_xp,d.xp_boost,d.xp_boost_until);
   }
   
+  // Check ob es gespeichert wurde
+  const updated=await getUser(t.id);
+  console.log("📊 Nachher - Coins:", updated.coins, "| Level:", updated.level, "| XP:", updated.total_xp);
+  
+  if(updated.coins === amt) {
+    console.log("✅ Coins erfolgreich gesetzt!");
+  } else {
+    console.log("❌ FEHLER: Coins wurden NICHT gesetzt!");
+  }
+  
   log(i.client,"COINS","Coins editiert",`Ziel: ${t.tag}\nVorher: ${d.coins} → ${amt}`,i.user);
-  return i.editReply(`✅ Coins von **${t.username}** auf **${amt}** gesetzt.`);
+  return i.editReply(`✅ Coins von **${t.username}** auf **${amt}** gesetzt.\n\n**Debug:**\nVorher: ${d.coins} Coins\nNachher: ${updated.coins} Coins`);
 }
 
 async function betlabeditxp(i) {
