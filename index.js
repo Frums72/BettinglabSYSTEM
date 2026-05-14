@@ -154,7 +154,8 @@ client.once("clientReady", async function() {
     await restoreTickets(guild, client);
   }
   
-  // Auto-Post Daily/Weekly NUR EINMAL
+  // Auto-Post Daily/Weekly TEMPORÄR DEAKTIVIERT ZUM TESTEN
+  /*
   if (!postsAlreadyDone) {
     postsAlreadyDone = true;
     console.log("📋 Starte Auto-Post...");
@@ -182,6 +183,8 @@ client.once("clientReady", async function() {
   } else {
     console.log("⚠️ Posts bereits gemacht, überspringe...");
   }
+  */
+  console.log("⚠️ Auto-Posts deaktiviert zum Testen!");
   
   log(client, "SUCCESS", "Bot gestartet", "Tag: " + client.user.tag);
 });
