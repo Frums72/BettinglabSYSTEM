@@ -124,10 +124,18 @@ async function postDailyQuests(client) {
   const ch = client.channels.cache.get(DAILY_CHANNEL) || await client.channels.fetch(DAILY_CHANNEL);
   if (!ch) return;
   
+  // Countdown bis Mitternacht (UTC)
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setUTCHours(24, 0, 0, 0);
+  const diff = tomorrow - now;
+  const hours = Math.floor(diff / 1000 / 60 / 60);
+  const minutes = Math.floor((diff / 1000 / 60) % 60);
+  
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle("📋 Daily Quests")
-    .setDescription("**Klicke auf den Button um deine Quests zu sehen!**\n\nJeder sieht nur seine eigenen Aufgaben.\nUpdates automatisch alle 3 Minuten.")
+    .setDescription(`**Klicke auf den Button um deine Quests zu sehen!**\n\nJeder sieht nur seine eigenen Aufgaben.\nUpdates automatisch alle 3 Minuten.\n\n⏰ **Neue Quests in:** ${hours}h ${minutes}min`)
     .setFooter({ text: "Nur du siehst deinen Fortschritt!" });
   
   const btn = new ButtonBuilder()
@@ -148,10 +156,20 @@ async function postWeeklyQuests(client) {
   const ch = client.channels.cache.get(DAILY_CHANNEL) || await client.channels.fetch(DAILY_CHANNEL);
   if (!ch) return;
   
+  // Countdown bis nächsten Montag 00:00 UTC
+  const now = new Date();
+  const nextMonday = new Date(now);
+  const daysUntilMonday = (8 - now.getUTCDay()) % 7 || 7;
+  nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
+  nextMonday.setUTCHours(0, 0, 0, 0);
+  const diff = nextMonday - now;
+  const days = Math.floor(diff / 1000 / 60 / 60 / 24);
+  const hours = Math.floor((diff / 1000 / 60 / 60) % 24);
+  
   const embed = new EmbedBuilder()
     .setColor(0x9B59B6)
     .setTitle("📅 Weekly Quests")
-    .setDescription("**Klicke auf den Button um deine Quests zu sehen!**\n\nJeder sieht nur seine eigenen Aufgaben.\nUpdates automatisch alle 3 Minuten.")
+    .setDescription(`**Klicke auf den Button um deine Quests zu sehen!**\n\nJeder sieht nur seine eigenen Aufgaben.\nUpdates automatisch alle 3 Minuten.\n\n⏰ **Neue Woche in:** ${days}d ${hours}h`)
     .setFooter({ text: "Nur du siehst deinen Fortschritt!" });
   
   const btn = new ButtonBuilder()

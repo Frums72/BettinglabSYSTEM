@@ -75,7 +75,12 @@ async function handleDailyButton(i) {
   let expectedDay = 1;
   if (last) {
     const diff = (now - last) / 1000 / 60 / 60;
-    if (diff < 24) return i.reply({ content: "❌ Du hast heute bereits deine Belohnung abgeholt!", flags: 64 });
+    if (diff < 24) {
+      const hoursLeft = 24 - diff;
+      const hours = Math.floor(hoursLeft);
+      const minutes = Math.floor((hoursLeft - hours) * 60);
+      return i.reply({ content: `❌ Du hast heute bereits deine Belohnung abgeholt!\n⏰ **Nächster Claim in:** ${hours}h ${minutes}min`, flags: 64 });
+    }
     if (diff >= 48) expectedDay = 1;
     else expectedDay = data.streak === 0 ? 1 : (data.streak % 7) + 1;
   }
