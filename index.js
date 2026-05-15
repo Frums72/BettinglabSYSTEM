@@ -115,6 +115,11 @@ const commands = [
     .setDescription("High/Low - Rate höher oder niedriger!")
     .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1)),
   new SlashCommandBuilder()
+    .setName("betlabrace")
+    .setDescription("Race - 10 Tiere rennen!")
+    .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1))
+    .addIntegerOption(o => o.setName("tier").setDescription("Welches Tier? (1-10)").setRequired(true).setMinValue(1).setMaxValue(10)),
+  new SlashCommandBuilder()
     .setName("betlabeditcoins")
     .setDescription("Coins manuell setzen")
     .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))

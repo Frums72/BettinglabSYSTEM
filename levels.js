@@ -409,6 +409,7 @@ async function handleCommand(i) {
   if(n==="betlabdice"){betlabdice(i);return true;}
   if(n==="betlabblackjack"){betlabblackjack(i);return true;}
   if(n==="betlabhighlow"){betlabhighlow(i);return true;}
+  if(n==="betlabrace"){betlabrace(i);return true;}
   if(n==="betlabranking"){betlabranking(i);return true;}
   if(n==="betlabeditcoins"){betlabeditcoins(i);return true;}
   if(n==="betlabeditxp"){betlabeditxp(i);return true;}
@@ -975,5 +976,162 @@ async function handleHighLowButton(i, client) {
   );
   
   await i.editReply({embeds: [nextEmbed], components: [nextRow]});
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RACE GAME
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const RACE_ANIMALS = [
+  { id: 1, emoji: "🐎", name: "Pferd" },
+  { id: 2, emoji: "🐕", name: "Hund" },
+  { id: 3, emoji: "🐇", name: "Hase" },
+  { id: 4, emoji: "🐢", name: "Schildkröte" },
+  { id: 5, emoji: "🦘", name: "Känguru" },
+  { id: 6, emoji: "🐆", name: "Gepard" },
+  { id: 7, emoji: "🦊", name: "Fuchs" },
+  { id: 8, emoji: "🐿️", name: "Eichhörnchen" },
+  { id: 9, emoji: "🦌", name: "Hirsch" },
+  { id: 10, emoji: "🐅", name: "Tiger" }
+];
+
+async function betlabrace(i) {
+  const amt = i.options.getInteger("anzahl");
+  const choice = i.options.getInteger("tier");
+  const d = await getUser(i.user.id);
+  
+  if(amt < 1) return await i.reply({content: "❌ Mindestens 1 Coin!", flags: 64});
+  if(amt > d.coins) return await i.reply({content: `❌ Du hast nur **${d.coins} Coins**!`, flags: 64});
+  if(choice < 1 || choice > 10) return await i.reply({content: "❌ Tier muss zwischen 1-10 sein!", flags: 64});
+  
+  await i.deferReply();
+  
+  const selected = RACE_ANIMALS[choice - 1];
+  
+  // START
+  let desc = `**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${selected.emoji} **${selected.name}** (#${choice})\n\n`;
+  desc += `🏁 **DAS RENNEN BEGINNT!**\n\n`;
+  
+  const embed1 = new EmbedBuilder()
+    .setColor(0xF1C40F)
+    .setTitle("🏇 RACE")
+    .setDescription(desc)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setFooter({text: "Auf die Plätze... Fertig... LOS!"});
+  
+  await i.editReply({embeds: [embed1]});
+  await new Promise(r => setTimeout(r, 1500));
+  
+  // Rennen simulieren - jedes Tier bekommt zufällige Geschwindigkeit
+  const raceResults = RACE_ANIMALS.map(a => ({
+    ...a,
+    speed: Math.random() * 100 + 50
+  }));
+  
+  // Sortiere nach Geschwindigkeit (schnellste = Platz 1)
+  raceResults.sort((a, b) => b.speed - a.speed);
+  
+  // ANIMATION - Mitte des Rennens
+  let desc2 = `**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${selected.emoji} **${selected.name}**\n\n`;
+  desc2 += `🏁 **RENNEN LÄUFT!**\n\n`;
+  
+  for(let idx = 0; idx < raceResults.length; idx++) {
+    const a = raceResults[idx];
+    const progress = Math.floor((a.speed / 150) * 10);
+    const bar = "▓".repeat(progress) + "░".repeat(10 - progress);
+    const marker = a.id === choice ? " ← 🎯" : "";
+    desc2 += `${a.emoji} ${bar}${marker}\n`;
+  }
+  
+  const embed2 = new EmbedBuilder()
+    .setColor(0xF39C12)
+    .setTitle("🏇 RACE")
+    .setDescription(desc2)
+    .setThumbnail(i.user.displayAvatarURL());
+  
+  await i.editReply({embeds: [embed2]});
+  await new Promise(r => setTimeout(r, 2000));
+  
+  // ERGEBNIS
+  const place = raceResults.findIndex(a => a.id === choice) + 1;
+  let multi = 0;
+  let result = "";
+  
+  if(place === 1) {
+    multi = 5;
+    result = "WIN";
+  } else if(place === 2) {
+    multi = 3;
+    result = "WIN";
+  } else if(place === 3) {
+    multi = 2;
+    result = "WIN";
+  } else if(place === 4 || place === 5) {
+    multi = 1;
+    result = "PUSH";
+  } else {
+    multi = 0;
+    result = "LOSS";
+  }
+  
+  const winAmount = Math.floor(amt * multi);
+  const newC = result === "LOSS" ? d.coins - amt : d.coins - amt + winAmount;
+  
+  // XP Bonus bei Top 3
+  let bonusXP = 0;
+  if(result === "WIN") {
+    const now = Date.now();
+    const last = cfXpCd.get(i.user.id);
+    if(!last || now - last >= COINFLIP_XP_CD) {
+      bonusXP = Math.min((winAmount - amt) * 5, MAX_CF_XP);
+      cfXpCd.set(i.user.id, now);
+      const b = getBoost(d);
+      const xpG = Math.floor(bonusXP * (1 + b / 100));
+      const ntx = d.total_xp + xpG;
+      const {level: newL, currentXp: cx} = getLevelFromTotalXp(ntx);
+      await saveUser(i.user.id, cx, newL, newC, ntx, d.xp_boost, d.xp_boost_until);
+      await trackProgress(i.user.id, "xp", xpG);
+    } else {
+      await saveUser(i.user.id, d.xp, d.level, newC, d.total_xp, d.xp_boost, d.xp_boost_until);
+    }
+  } else {
+    await saveUser(i.user.id, d.xp, d.level, newC, d.total_xp, d.xp_boost, d.xp_boost_until);
+  }
+  
+  // Ergebnis Embed
+  let desc3 = `**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${selected.emoji} **${selected.name}**\n\n`;
+  desc3 += `🏁 **ERGEBNIS:**\n\n`;
+  
+  for(let idx = 0; idx < Math.min(5, raceResults.length); idx++) {
+    const a = raceResults[idx];
+    const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : idx === 3 || idx === 4 ? "🏅" : "";
+    const marker = a.id === choice ? " ← **DU**" : "";
+    desc3 += `${medal} **Platz ${idx + 1}:** ${a.emoji} ${a.name}${marker}\n`;
+  }
+  
+  desc3 += `\n`;
+  
+  if(result === "WIN") {
+    desc3 += `# 🎉 PLATZ ${place}!\n\n✅ **+${winAmount} Coins** (${multi}x)`;
+    if(bonusXP > 0) desc3 += `\n🎁 **Bonus:** +${bonusXP} XP`;
+  } else if(result === "PUSH") {
+    desc3 += `# 🤝 PLATZ ${place}!\n\n↔️ **Einsatz zurück** (+${amt} Coins)`;
+  } else {
+    desc3 += `# 💔 PLATZ ${place}!\n\n❌ **-${amt} Coins**`;
+  }
+  
+  desc3 += `\n\n💰 **Neue Balance:** ${newC} Coins`;
+  
+  const resultEmbed = new EmbedBuilder()
+    .setColor(result === "WIN" ? 0x57F287 : result === "PUSH" ? 0xF1C40F : 0xED4245)
+    .setTitle(result === "WIN" ? "🎊 GEWONNEN!" : result === "PUSH" ? "🤝 UNENTSCHIEDEN" : "😢 VERLOREN")
+    .setDescription(desc3)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setImage(IMAGE)
+    .setFooter({text: result === "WIN" ? `Top ${place}! 🍀` : result === "PUSH" ? "Platz 4-5!" : "Nächstes Mal!"});
+  
+  log(i.client, "INFO", "Race", `User: ${i.user.tag}\nEinsatz: ${amt}\nTier: ${selected.name}\nPlatz: ${place}\nErgebnis: ${result}\nBalance: ${newC}`, i.user);
+  return i.editReply({embeds: [resultEmbed]});
 }
 
