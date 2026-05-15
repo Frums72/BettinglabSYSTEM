@@ -247,7 +247,7 @@ client.on("interactionCreate", async function(i) {
     }
     
     // Blackjack Buttons
-    if (i.customId && (i.customId === "bj_hit" || i.customId === "bj_stand" || i.customId === "bj_double")) {
+    if (i.customId && (i.customId === "bj_hit" || i.customId === "bj_stand" || i.customId === "bj_double" || i.customId === "bj_surrender")) {
       await handleBlackjackButton(i, client);
       return;
     }

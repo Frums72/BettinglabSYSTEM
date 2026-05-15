@@ -578,7 +578,8 @@ async function betlabblackjack(i) {
   const row=new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("bj_hit").setLabel("🎴 HIT").setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId("bj_stand").setLabel("✋ STAND").setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId("bj_double").setLabel("⚡ DOUBLE").setStyle(ButtonStyle.Primary)
+    new ButtonBuilder().setCustomId("bj_double").setLabel("⚡ DOUBLE").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("bj_surrender").setLabel("🏳️ SURRENDER").setStyle(ButtonStyle.Secondary)
   );
   
   if(pVal===21){
@@ -655,6 +656,32 @@ async function handleBlackjackButton(i,client){
     return await bjResolve(i,playerHand,dealerHand,bet*2,coins);
   }
   
+  if(i.customId==="bj_surrender"){
+    bjGames.delete(i.user.id);
+    
+    // 50% vom Einsatz zurück
+    const returnAmount=Math.floor(bet*0.5);
+    const newC=coins-bet+returnAmount;
+    const d=await getUser(i.user.id);
+    await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
+    
+    let desc=`**Einsatz:** ${bet} Coins\n\n`;
+    desc+=`**Deine Hand:** ${showHand(playerHand)}\n**Wert:** ${handValue(playerHand)}\n\n`;
+    desc+=`**Dealer:** ${showHand(dealerHand,true)}\n\n`;
+    desc+=`# 🏳️ AUFGEGEBEN!\n\n↩️ **+${returnAmount} Coins zurück** (50%)\n\n💰 **Neue Balance:** ${newC} Coins`;
+    
+    const embed=new EmbedBuilder()
+      .setColor(0xF39C12)
+      .setTitle("🏳️ SURRENDER")
+      .setDescription(desc)
+      .setThumbnail(i.user.displayAvatarURL())
+      .setImage(IMAGE)
+      .setFooter({text:"50% zurück - Nächstes Mal!"});
+    
+    log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: SURRENDER\nZurück: ${returnAmount}\nBalance: ${newC}`,i.user);
+    return await i.update({embeds:[embed],components:[]});
+  }
+  
   if(i.customId==="bj_stand"){
     bjGames.delete(i.user.id);
     
@@ -667,14 +694,14 @@ async function handleBlackjackButton(i,client){
 }
 
 async function bjBlackjack(i,playerHand,dealerHand,bet,d){
-  const winAmount=Math.floor(bet*1.5);
+  const winAmount=Math.floor(bet*2.5);
   const newC=d.coins+winAmount;
   await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
   
   let desc=`**Einsatz:** ${bet} Coins\n\n`;
   desc+=`**Deine Hand:** ${showHand(playerHand)}\n**Wert:** 21\n\n`;
   desc+=`**Dealer:** ${showHand(dealerHand)}\n**Wert:** ${handValue(dealerHand)}\n\n`;
-  desc+=`# 🎉 BLACKJACK!\n\n✅ **+${winAmount} Coins** (1.5x Gewinn!)\n\n💰 **Neue Balance:** ${newC} Coins`;
+  desc+=`# 🎉 BLACKJACK!\n\n✅ **+${winAmount} Coins** (2.5x Gewinn!)\n\n💰 **Neue Balance:** ${newC} Coins`;
   
   const embed=new EmbedBuilder()
     .setColor(0x57F287)
@@ -685,7 +712,7 @@ async function bjBlackjack(i,playerHand,dealerHand,bet,d){
     .setFooter({text:"BLACKJACK! 🍀"});
   
   log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: BLACKJACK\nBalance: ${newC}`,i.user);
-  return i.reply({embeds:[embed]});
+  return await i.reply({embeds:[embed]});
 }
 
 async function bjBust(i,playerHand,dealerHand,bet,coins){
