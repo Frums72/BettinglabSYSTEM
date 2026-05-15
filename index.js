@@ -12,7 +12,7 @@ const { log } = require("./logger");
 const { updateStats } = require("./stats");
 const { startEmbedBuilder, handleEmbedBuilder } = require("./embedbuilder");
 const { handleMessage: handleAutomod } = require("./automod");
-const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand, handleBlackjackButton } = require("./levels");
+const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand, handleBlackjackButton, handleHighLowButton } = require("./levels");
 const { handleCommand: handleModCommand } = require("./moderation");
 const { postDailyRewards, handleDailyButton } = require("./dailyrewards");
 const { postDailyQuests, postWeeklyQuests, handleQuestButton, handleQuestClaim } = require("./quests");
@@ -109,6 +109,10 @@ const commands = [
   new SlashCommandBuilder()
     .setName("betlabblackjack")
     .setDescription("Blackjack - Komm näher an 21!")
+    .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1)),
+  new SlashCommandBuilder()
+    .setName("betlabhighlow")
+    .setDescription("High/Low - Rate höher oder niedriger!")
     .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1)),
   new SlashCommandBuilder()
     .setName("betlabeditcoins")
@@ -249,6 +253,12 @@ client.on("interactionCreate", async function(i) {
     // Blackjack Buttons
     if (i.customId && (i.customId === "bj_hit" || i.customId === "bj_stand" || i.customId === "bj_double" || i.customId === "bj_surrender")) {
       await handleBlackjackButton(i, client);
+      return;
+    }
+    
+    // High/Low Buttons
+    if (i.customId && (i.customId === "hl_higher" || i.customId === "hl_lower" || i.customId === "hl_cashout")) {
+      await handleHighLowButton(i, client);
       return;
     }
     

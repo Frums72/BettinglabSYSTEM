@@ -408,13 +408,14 @@ async function handleCommand(i) {
   if(n==="betlabcoinflip"){betlabcf(i);return true;}
   if(n==="betlabdice"){betlabdice(i);return true;}
   if(n==="betlabblackjack"){betlabblackjack(i);return true;}
+  if(n==="betlabhighlow"){betlabhighlow(i);return true;}
   if(n==="betlabranking"){betlabranking(i);return true;}
   if(n==="betlabeditcoins"){betlabeditcoins(i);return true;}
   if(n==="betlabeditxp"){betlabeditxp(i);return true;}
   return false;
 }
 
-module.exports={handleMessage,handleReaction,handleCommand,handleBlackjackButton};
+module.exports={handleMessage,handleReaction,handleCommand,handleBlackjackButton,handleHighLowButton};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DICE GAME
@@ -807,5 +808,172 @@ async function bjResolve(i,playerHand,dealerHand,bet,coins){
   
   log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: ${result}${bonusXP>0?`\nBonus: ${bonusXP} XP`:''}\nBalance: ${newC}`,i.user);
   return await i.update({embeds:[embed],components:[]});
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HIGH/LOW GAME
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const hlGames = new Map();
+const HIGHLOW_MULTIPLIERS = [1.5, 2, 3, 4.5, 6, 8, 12, 18, 25, 40];
+
+async function betlabhighlow(i) {
+  const amt = i.options.getInteger("anzahl");
+  const d = await getUser(i.user.id);
+  
+  if(amt < 1) return await i.reply({content: "❌ Mindestens 1 Coin!", flags: 64});
+  if(amt > d.coins) return await i.reply({content: `❌ Du hast nur **${d.coins} Coins**!`, flags: 64});
+  if(hlGames.has(i.user.id)) return await i.reply({content: "❌ Du hast bereits ein Spiel laufen!", flags: 64});
+  
+  const firstNum = Math.floor(Math.random() * 100) + 1;
+  hlGames.set(i.user.id, {
+    bet: amt,
+    coins: d.coins,
+    round: 0,
+    currentNum: firstNum,
+    history: [firstNum]
+  });
+  
+  let desc = `**Einsatz:** ${amt} Coins\n**Runde:** 1\n**Multiplikator:** ${HIGHLOW_MULTIPLIERS[0]}x\n\n`;
+  desc += `# 🎲 AKTUELLE ZAHL: **${firstNum}**\n\n`;
+  desc += `Wird die nächste Zahl höher oder niedriger sein?`;
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x3498DB)
+    .setTitle("🔢 HIGH/LOW")
+    .setDescription(desc)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setFooter({text: "Tipp richtig = Weiter! Falsch = Alles verloren!"});
+  
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("hl_higher").setLabel("📈 HIGHER").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("hl_lower").setLabel("📉 LOWER").setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId("hl_cashout").setLabel("💰 CASHOUT").setStyle(ButtonStyle.Primary).setDisabled(true)
+  );
+  
+  return await i.reply({embeds: [embed], components: [row]});
+}
+
+async function handleHighLowButton(i, client) {
+  const game = hlGames.get(i.user.id);
+  if(!game) return await i.reply({content: "❌ Kein aktives Spiel!", flags: 64});
+  
+  const {bet, coins, round, currentNum, history} = game;
+  
+  if(i.customId === "hl_cashout") {
+    const multi = HIGHLOW_MULTIPLIERS[round];
+    const winAmount = Math.floor(bet * multi);
+    const newC = coins + winAmount - bet;
+    
+    const d = await getUser(i.user.id);
+    
+    // XP Bonus
+    let bonusXP = 0;
+    const now = Date.now();
+    const last = cfXpCd.get(i.user.id);
+    if(!last || now - last >= COINFLIP_XP_CD) {
+      bonusXP = Math.min(winAmount * 5, MAX_CF_XP);
+      cfXpCd.set(i.user.id, now);
+      const b = getBoost(d);
+      const xpG = Math.floor(bonusXP * (1 + b / 100));
+      const ntx = d.total_xp + xpG;
+      const {level: newL, currentXp: cx} = getLevelFromTotalXp(ntx);
+      await saveUser(i.user.id, cx, newL, newC, ntx, d.xp_boost, d.xp_boost_until);
+      await trackProgress(i.user.id, "xp", xpG);
+    } else {
+      await saveUser(i.user.id, d.xp, d.level, newC, d.total_xp, d.xp_boost, d.xp_boost_until);
+    }
+    
+    let desc = `**Einsatz:** ${bet} Coins\n**Runden geschafft:** ${round}\n**Multiplikator:** ${multi}x\n\n`;
+    desc += `# 💰 AUSGEZAHLT!\n\n✅ **+${winAmount} Coins**`;
+    if(bonusXP > 0) desc += `\n🎁 **Bonus:** +${bonusXP} XP`;
+    desc += `\n\n💰 **Neue Balance:** ${newC} Coins`;
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x57F287)
+      .setTitle("🎊 GEWINN GESICHERT!")
+      .setDescription(desc)
+      .setThumbnail(i.user.displayAvatarURL())
+      .setImage(IMAGE)
+      .setFooter({text: `${round} Runden gemeistert! 🍀`});
+    
+    log(i.client, "INFO", "HighLow", `User: ${i.user.tag}\nEinsatz: ${bet}\nRunden: ${round}\nGewinn: ${winAmount}\nBalance: ${newC}`, i.user);
+    await i.update({embeds: [embed], components: []});
+    hlGames.delete(i.user.id);
+    return;
+  }
+  
+  const choice = i.customId === "hl_higher" ? "higher" : "lower";
+  
+  // Animation
+  await i.deferUpdate();
+  
+  let desc = `**Einsatz:** ${bet} Coins\n**Runde:** ${round + 1}\n\n`;
+  desc += `**Letzte Zahl:** ${currentNum}\n**Deine Wahl:** ${choice === "higher" ? "📈 HIGHER" : "📉 LOWER"}\n\n`;
+  desc += `🎲 Neue Zahl wird gezogen...`;
+  
+  const animEmbed = new EmbedBuilder()
+    .setColor(0xF1C40F)
+    .setTitle("🔢 HIGH/LOW")
+    .setDescription(desc)
+    .setThumbnail(i.user.displayAvatarURL());
+  
+  await i.editReply({embeds: [animEmbed], components: []});
+  await new Promise(r => setTimeout(r, 2000));
+  
+  const newNum = Math.floor(Math.random() * 100) + 1;
+  const correct = (choice === "higher" && newNum > currentNum) || (choice === "lower" && newNum < currentNum);
+  
+  if(!correct || newNum === currentNum) {
+    // VERLOREN
+    const newC = coins - bet;
+    const d = await getUser(i.user.id);
+    await saveUser(i.user.id, d.xp, d.level, newC, d.total_xp, d.xp_boost, d.xp_boost_until);
+    
+    let loseDesc = `**Einsatz:** ${bet} Coins\n**Runden geschafft:** ${round}\n\n`;
+    loseDesc += `**Letzte Zahl:** ${currentNum}\n**Neue Zahl:** ${newNum}\n\n`;
+    loseDesc += `# 💔 FALSCH!\n\n❌ **-${bet} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
+    
+    const loseEmbed = new EmbedBuilder()
+      .setColor(0xED4245)
+      .setTitle("😢 GAME OVER!")
+      .setDescription(loseDesc)
+      .setThumbnail(i.user.displayAvatarURL())
+      .setImage(IMAGE)
+      .setFooter({text: "Nächstes Mal klappt's!"});
+    
+    log(i.client, "INFO", "HighLow", `User: ${i.user.tag}\nEinsatz: ${bet}\nRunden: ${round}\nErgebnis: LOSS\nBalance: ${newC}`, i.user);
+    await i.editReply({embeds: [loseEmbed], components: []});
+    hlGames.delete(i.user.id);
+    return;
+  }
+  
+  // RICHTIG - Weiter!
+  const newRound = round + 1;
+  const multi = HIGHLOW_MULTIPLIERS[newRound];
+  game.round = newRound;
+  game.currentNum = newNum;
+  game.history.push(newNum);
+  
+  let nextDesc = `**Einsatz:** ${bet} Coins\n**Runde:** ${newRound + 1}\n**Multiplikator:** ${multi}x\n\n`;
+  nextDesc += `# 🎲 AKTUELLE ZAHL: **${newNum}**\n\n`;
+  nextDesc += `**Verlauf:** ${history.join(" → ")} → **${newNum}**\n\n`;
+  nextDesc += `Wird die nächste Zahl höher oder niedriger sein?`;
+  
+  const nextEmbed = new EmbedBuilder()
+    .setColor(0x57F287)
+    .setTitle("✅ RICHTIG!")
+    .setDescription(nextDesc)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setFooter({text: `Aktueller Gewinn: ${Math.floor(bet * multi)} Coins`});
+  
+  const nextRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("hl_higher").setLabel("📈 HIGHER").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("hl_lower").setLabel("📉 LOWER").setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId("hl_cashout").setLabel("💰 CASHOUT").setStyle(ButtonStyle.Primary)
+  );
+  
+  await i.editReply({embeds: [nextEmbed], components: [nextRow]});
 }
 
