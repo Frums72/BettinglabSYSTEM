@@ -12,7 +12,7 @@ const { log } = require("./logger");
 const { updateStats } = require("./stats");
 const { startEmbedBuilder, handleEmbedBuilder } = require("./embedbuilder");
 const { handleMessage: handleAutomod } = require("./automod");
-const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand, handleBlackjackButton, handleHighLowButton } = require("./levels");
+const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand, handleBlackjackButton, handleHighLowButton, handleRaceButton } = require("./levels");
 const { handleCommand: handleModCommand } = require("./moderation");
 const { postDailyRewards, handleDailyButton } = require("./dailyrewards");
 const { postDailyQuests, postWeeklyQuests, handleQuestButton, handleQuestClaim } = require("./quests");
@@ -117,8 +117,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("betlabrace")
     .setDescription("Race - 10 Tiere rennen!")
-    .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1))
-    .addIntegerOption(o => o.setName("tier").setDescription("Welches Tier? (1-10)").setRequired(true).setMinValue(1).setMaxValue(10)),
+    .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1)),
   new SlashCommandBuilder()
     .setName("betlabeditcoins")
     .setDescription("Coins manuell setzen")
@@ -264,6 +263,12 @@ client.on("interactionCreate", async function(i) {
     // High/Low Buttons
     if (i.customId && (i.customId === "hl_higher" || i.customId === "hl_lower" || i.customId === "hl_cashout")) {
       await handleHighLowButton(i, client);
+      return;
+    }
+    
+    // Race Buttons
+    if (i.customId && i.customId.startsWith("race_")) {
+      await handleRaceButton(i, client);
       return;
     }
     

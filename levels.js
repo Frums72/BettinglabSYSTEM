@@ -416,7 +416,7 @@ async function handleCommand(i) {
   return false;
 }
 
-module.exports={handleMessage,handleReaction,handleCommand,handleBlackjackButton,handleHighLowButton};
+module.exports={handleMessage,handleReaction,handleCommand,handleBlackjackButton,handleHighLowButton,handleRaceButton};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DICE GAME
@@ -996,62 +996,118 @@ const RACE_ANIMALS = [
   { id: 10, emoji: "🐅", name: "Tiger" }
 ];
 
+const raceGames = new Map();
+
 async function betlabrace(i) {
   const amt = i.options.getInteger("anzahl");
-  const choice = i.options.getInteger("tier");
   const d = await getUser(i.user.id);
   
   if(amt < 1) return await i.reply({content: "❌ Mindestens 1 Coin!", flags: 64});
   if(amt > d.coins) return await i.reply({content: `❌ Du hast nur **${d.coins} Coins**!`, flags: 64});
-  if(choice < 1 || choice > 10) return await i.reply({content: "❌ Tier muss zwischen 1-10 sein!", flags: 64});
+  if(raceGames.has(i.user.id)) return await i.reply({content: "❌ Du hast bereits ein Rennen laufen!", flags: 64});
   
-  await i.deferReply();
+  raceGames.set(i.user.id, { bet: amt, coins: d.coins });
   
+  let desc = `**Einsatz:** ${amt} Coins\n\n🏁 **WÄHLE DEIN TIER!**\n\n`;
+  for(const a of RACE_ANIMALS) {
+    desc += `**${a.id}.** ${a.emoji} ${a.name}\n`;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x3498DB)
+    .setTitle("🏇 RACE - TIER WÄHLEN")
+    .setDescription(desc)
+    .setThumbnail(i.user.displayAvatarURL())
+    .setFooter({text: "Klicke auf dein Tier!"});
+  
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("race_1").setLabel("1️⃣ 🐎").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("race_2").setLabel("2️⃣ 🐕").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("race_3").setLabel("3️⃣ 🐇").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("race_4").setLabel("4️⃣ 🐢").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("race_5").setLabel("5️⃣ 🦘").setStyle(ButtonStyle.Primary)
+  );
+  
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("race_6").setLabel("6️⃣ 🐆").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("race_7").setLabel("7️⃣ 🦊").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("race_8").setLabel("8️⃣ 🐿️").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("race_9").setLabel("9️⃣ 🦌").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("race_10").setLabel("🔟 🐅").setStyle(ButtonStyle.Primary)
+  );
+  
+  return await i.reply({embeds: [embed], components: [row1, row2]});
+}
+
+async function handleRaceButton(i, client) {
+  const game = raceGames.get(i.user.id);
+  if(!game) return await i.reply({content: "❌ Kein aktives Rennen!", flags: 64});
+  
+  const choice = parseInt(i.customId.split("_")[1]);
   const selected = RACE_ANIMALS[choice - 1];
+  const {bet, coins} = game;
+  
+  await i.deferUpdate();
   
   // START
-  let desc = `**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${selected.emoji} **${selected.name}** (#${choice})\n\n`;
+  let desc = `**Einsatz:** ${bet} Coins\n**Deine Wahl:** ${selected.emoji} **${selected.name}** (#${choice})\n\n`;
   desc += `🏁 **DAS RENNEN BEGINNT!**\n\n`;
+  desc += `Auf die Plätze... Fertig...`;
   
   const embed1 = new EmbedBuilder()
     .setColor(0xF1C40F)
     .setTitle("🏇 RACE")
     .setDescription(desc)
     .setThumbnail(i.user.displayAvatarURL())
-    .setFooter({text: "Auf die Plätze... Fertig... LOS!"});
+    .setFooter({text: "⏱️ Das Rennen startet gleich!"});
   
-  await i.editReply({embeds: [embed1]});
+  await i.editReply({embeds: [embed1], components: []});
   await new Promise(r => setTimeout(r, 1500));
   
   // Rennen simulieren - jedes Tier bekommt zufällige Geschwindigkeit
   const raceResults = RACE_ANIMALS.map(a => ({
     ...a,
-    speed: Math.random() * 100 + 50
+    speed: Math.random() * 100 + 50,
+    progress: 0
   }));
   
-  // Sortiere nach Geschwindigkeit (schnellste = Platz 1)
-  raceResults.sort((a, b) => b.speed - a.speed);
+  // Animation Phasen: 25%, 50%, 75%, 100%
+  const phases = [
+    {pct: 25, text: "🏁 **25% - DAS FELD IST NOCH DICHT!**", color: 0xE67E22},
+    {pct: 50, text: "🏁 **50% - ES BILDEN SICH FAVORITEN!**", color: 0xE74C3C},
+    {pct: 75, text: "🏁 **75% - DER ENDSPURT BEGINNT!**", color: 0x9B59B6},
+    {pct: 100, text: "🏁 **ZIELEINLAUF!**", color: 0xF1C40F}
+  ];
   
-  // ANIMATION - Mitte des Rennens
-  let desc2 = `**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${selected.emoji} **${selected.name}**\n\n`;
-  desc2 += `🏁 **RENNEN LÄUFT!**\n\n`;
-  
-  for(let idx = 0; idx < raceResults.length; idx++) {
-    const a = raceResults[idx];
-    const progress = Math.floor((a.speed / 150) * 10);
-    const bar = "▓".repeat(progress) + "░".repeat(10 - progress);
-    const marker = a.id === choice ? " ← 🎯" : "";
-    desc2 += `${a.emoji} ${bar}${marker}\n`;
+  for(const phase of phases) {
+    for(const r of raceResults) {
+      r.progress = Math.min((r.speed / 150) * phase.pct, phase.pct);
+    }
+    raceResults.sort((a, b) => b.progress - a.progress);
+    
+    let phaseDesc = `**Einsatz:** ${bet} Coins\n**Deine Wahl:** ${selected.emoji} **${selected.name}**\n\n`;
+    phaseDesc += `${phase.text}\n\n`;
+    
+    for(let idx = 0; idx < raceResults.length; idx++) {
+      const a = raceResults[idx];
+      const barLength = Math.floor(a.progress / 10);
+      const bar = "▓".repeat(barLength) + "░".repeat(10 - barLength);
+      const marker = a.id === choice ? " ← 🎯" : "";
+      phaseDesc += `${a.emoji} ${bar}${marker}\n`;
+    }
+    
+    const phaseEmbed = new EmbedBuilder()
+      .setColor(phase.color)
+      .setTitle("🏇 RACE")
+      .setDescription(phaseDesc)
+      .setThumbnail(i.user.displayAvatarURL());
+    
+    await i.editReply({embeds: [phaseEmbed]});
+    await new Promise(r => setTimeout(r, 1500));
   }
   
-  const embed2 = new EmbedBuilder()
-    .setColor(0xF39C12)
-    .setTitle("🏇 RACE")
-    .setDescription(desc2)
-    .setThumbnail(i.user.displayAvatarURL());
-  
-  await i.editReply({embeds: [embed2]});
-  await new Promise(r => setTimeout(r, 2000));
+  // Finale Sortierung nach Geschwindigkeit
+  raceResults.sort((a, b) => b.speed - a.speed);
   
   // ERGEBNIS
   const place = raceResults.findIndex(a => a.id === choice) + 1;
@@ -1075,8 +1131,9 @@ async function betlabrace(i) {
     result = "LOSS";
   }
   
-  const winAmount = Math.floor(amt * multi);
-  const newC = result === "LOSS" ? d.coins - amt : d.coins - amt + winAmount;
+  const winAmount = Math.floor(bet * multi);
+  const d = await getUser(i.user.id);
+  const newC = result === "LOSS" ? coins - bet : coins - bet + winAmount;
   
   // XP Bonus bei Top 3
   let bonusXP = 0;
@@ -1084,7 +1141,7 @@ async function betlabrace(i) {
     const now = Date.now();
     const last = cfXpCd.get(i.user.id);
     if(!last || now - last >= COINFLIP_XP_CD) {
-      bonusXP = Math.min((winAmount - amt) * 5, MAX_CF_XP);
+      bonusXP = Math.min((winAmount - bet) * 5, MAX_CF_XP);
       cfXpCd.set(i.user.id, now);
       const b = getBoost(d);
       const xpG = Math.floor(bonusXP * (1 + b / 100));
@@ -1100,8 +1157,8 @@ async function betlabrace(i) {
   }
   
   // Ergebnis Embed
-  let desc3 = `**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${selected.emoji} **${selected.name}**\n\n`;
-  desc3 += `🏁 **ERGEBNIS:**\n\n`;
+  let desc3 = `**Einsatz:** ${bet} Coins\n**Deine Wahl:** ${selected.emoji} **${selected.name}**\n\n`;
+  desc3 += `🏁 **ENDERGEBNIS:**\n\n`;
   
   for(let idx = 0; idx < Math.min(5, raceResults.length); idx++) {
     const a = raceResults[idx];
@@ -1116,9 +1173,9 @@ async function betlabrace(i) {
     desc3 += `# 🎉 PLATZ ${place}!\n\n✅ **+${winAmount} Coins** (${multi}x)`;
     if(bonusXP > 0) desc3 += `\n🎁 **Bonus:** +${bonusXP} XP`;
   } else if(result === "PUSH") {
-    desc3 += `# 🤝 PLATZ ${place}!\n\n↔️ **Einsatz zurück** (+${amt} Coins)`;
+    desc3 += `# 🤝 PLATZ ${place}!\n\n↔️ **Einsatz zurück** (+${bet} Coins)`;
   } else {
-    desc3 += `# 💔 PLATZ ${place}!\n\n❌ **-${amt} Coins**`;
+    desc3 += `# 💔 PLATZ ${place}!\n\n❌ **-${bet} Coins**`;
   }
   
   desc3 += `\n\n💰 **Neue Balance:** ${newC} Coins`;
@@ -1131,7 +1188,8 @@ async function betlabrace(i) {
     .setImage(IMAGE)
     .setFooter({text: result === "WIN" ? `Top ${place}! 🍀` : result === "PUSH" ? "Platz 4-5!" : "Nächstes Mal!"});
   
-  log(i.client, "INFO", "Race", `User: ${i.user.tag}\nEinsatz: ${amt}\nTier: ${selected.name}\nPlatz: ${place}\nErgebnis: ${result}\nBalance: ${newC}`, i.user);
-  return i.editReply({embeds: [resultEmbed]});
+  log(i.client, "INFO", "Race", `User: ${i.user.tag}\nEinsatz: ${bet}\nTier: ${selected.name}\nPlatz: ${place}\nErgebnis: ${result}\nBalance: ${newC}`, i.user);
+  await i.editReply({embeds: [resultEmbed]});
+  raceGames.delete(i.user.id);
 }
 
