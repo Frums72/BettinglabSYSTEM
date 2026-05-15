@@ -736,7 +736,7 @@ async function bjBust(i,playerHand,dealerHand,bet,coins){
     .setFooter({text:"Über 21! Nächstes Mal!"});
   
   log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: BUST\nBalance: ${newC}`,i.user);
-  return i.update({embeds:[embed],components:[]});
+  return await i.update({embeds:[embed],components:[]});
 }
 
 async function bjResolve(i,playerHand,dealerHand,bet,coins){
@@ -801,6 +801,6 @@ async function bjResolve(i,playerHand,dealerHand,bet,coins){
     .setFooter({text:result==="WIN"?"Glückwunsch! 🍀":result==="PUSH"?"Kein Gewinner!":"Nächstes Mal klappt's!"});
   
   log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: ${result}${bonusXP>0?`\nBonus: ${bonusXP} XP`:''}\nBalance: ${newC}`,i.user);
-  return i.update({embeds:[embed],components:[]});
+  return await i.update({embeds:[embed],components:[]});
 }
 
