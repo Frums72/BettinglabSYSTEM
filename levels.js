@@ -608,8 +608,9 @@ async function handleBlackjackButton(i,client){
     const pVal=handValue(playerHand);
     
     if(pVal>21){
+      await bjBust(i,playerHand,dealerHand,bet,coins);
       bjGames.delete(i.user.id);
-      return await bjBust(i,playerHand,dealerHand,bet,coins);
+      return;
     }
     
     let desc=`**Einsatz:** ${bet} Coins\n\n`;
@@ -642,10 +643,10 @@ async function handleBlackjackButton(i,client){
     playerHand.push(drawCard());
     const pVal=handValue(playerHand);
     
-    bjGames.delete(i.user.id);
-    
     if(pVal>21){
-      return await bjBust(i,playerHand,dealerHand,bet*2,coins);
+      await bjBust(i,playerHand,dealerHand,bet*2,coins);
+      bjGames.delete(i.user.id);
+      return;
     }
     
     // Dealer zieht
@@ -653,12 +654,12 @@ async function handleBlackjackButton(i,client){
       dealerHand.push(drawCard());
     }
     
-    return await bjResolve(i,playerHand,dealerHand,bet*2,coins);
+    await bjResolve(i,playerHand,dealerHand,bet*2,coins);
+    bjGames.delete(i.user.id);
+    return;
   }
   
   if(i.customId==="bj_surrender"){
-    bjGames.delete(i.user.id);
-    
     // 50% vom Einsatz zurück
     const returnAmount=Math.floor(bet*0.5);
     const newC=coins-bet+returnAmount;
@@ -679,17 +680,21 @@ async function handleBlackjackButton(i,client){
       .setFooter({text:"50% zurück - Nächstes Mal!"});
     
     log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: SURRENDER\nZurück: ${returnAmount}\nBalance: ${newC}`,i.user);
-    return await i.update({embeds:[embed],components:[]});
+    await i.update({embeds:[embed],components:[]});
+    bjGames.delete(i.user.id);
+    return;
   }
   
   if(i.customId==="bj_stand"){
-    bjGames.delete(i.user.id);
-    
+    // Dealer zieht
     while(handValue(dealerHand)<17){
       dealerHand.push(drawCard());
     }
     
-    return await bjResolve(i,playerHand,dealerHand,bet,coins);
+    // Erst resolve, DANN delete
+    await bjResolve(i,playerHand,dealerHand,bet,coins);
+    bjGames.delete(i.user.id);
+    return;
   }
 }
 
