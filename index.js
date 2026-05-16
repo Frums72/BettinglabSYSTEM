@@ -128,26 +128,10 @@ const commands = [
     .setDescription("Daily Spin - 1x pro Tag kostenlos!"),
   new SlashCommandBuilder()
     .setName("giveaway")
-    .setDescription("Giveaway starten (Nur Team)")
-    .addChannelOption(o => o.setName("channel").setDescription("Channel für das Giveaway").setRequired(true))
-    .addStringOption(o => o.setName("gewinn").setDescription("Gewinn (Zahl = Coins, Text = Custom)").setRequired(true))
-    .addStringOption(o => o.setName("dauer").setDescription("Dauer (z.B. 1h, 30m, 2d, 1d 12h)").setRequired(true)),
-  new SlashCommandBuilder()
-    .setName("giveaway")
     .setDescription("Starte ein Giveaway!")
     .addChannelOption(o => o.setName("channel").setDescription("In welchem Channel?").setRequired(true))
     .addStringOption(o => o.setName("gewinn").setDescription("Was gibt es zu gewinnen? (z.B. '500 Coins' oder 'Nitro')").setRequired(true))
     .addIntegerOption(o => o.setName("dauer").setDescription("Dauer in Minuten (Standard: 60)").setMinValue(1)),
-  new SlashCommandBuilder()
-    .setName("betlabeditcoins")
-    .setDescription("Coins manuell setzen")
-    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
-    .addIntegerOption(o => o.setName("anzahl").setDescription("Anzahl").setRequired(true)),
-  new SlashCommandBuilder()
-    .setName("betlabeditxp")
-    .setDescription("XP manuell setzen")
-    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
-    .addIntegerOption(o => o.setName("xp").setDescription("Total XP Anzahl").setRequired(true)),
   new SlashCommandBuilder()
     .setName("betlabinvest")
     .setDescription("Investiere in Projekte!")
@@ -157,6 +141,16 @@ const commands = [
       { name: "💎 CASINO (Hoch)", value: "casino" }
     ))
     .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins investieren?").setRequired(true).setMinValue(100)),
+  new SlashCommandBuilder()
+    .setName("betlabeditcoins")
+    .setDescription("Coins manuell setzen (Team Only)")
+    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
+    .addIntegerOption(o => o.setName("anzahl").setDescription("Anzahl").setRequired(true)),
+  new SlashCommandBuilder()
+    .setName("betlabeditxp")
+    .setDescription("XP manuell setzen (Team Only)")
+    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
+    .addIntegerOption(o => o.setName("xp").setDescription("Total XP Anzahl").setRequired(true)),
   new SlashCommandBuilder()
     .setName("betlabranking")
     .setDescription("TOP 5 Rankings")
