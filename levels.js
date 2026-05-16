@@ -219,7 +219,7 @@ async function betlabxp(i) {
     .setThumbnail(t.displayAvatarURL()).setImage(IMAGE)],flags:64});
 }
 
-async function betlabcf(i) {
+async function betlabcf(i, client) {
   const amt=i.options.getInteger("anzahl");
   const d=await getUser(i.user.id);
   if(amt<1)return i.reply({content:"❌ Mindestens 1 Coin!",flags:64});
@@ -421,17 +421,17 @@ async function betlabeditxp(i) {
   return i.editReply(`✅ XP von **${t.username}** auf **${tx}** gesetzt.\n**Neues Level:** ${newL}`);
 }
 
-async function handleCommand(i) {
+async function handleCommand(i, client) {
   const n=i.commandName;
   if(n==="help"){const {helpCommand}=require("./help_commands");helpCommand(i);return true;}
   if(n==="teamhelp"){const {teamhelpCommand}=require("./help_commands");teamhelpCommand(i);return true;}
   if(n==="betlabcoins"){betlabcoins(i);return true;}
   if(n==="betlabxp"){betlabxp(i);return true;}
-  if(n==="betlabcoinflip"){betlabcf(i);return true;}
-  if(n==="betlabdice"){betlabdice(i);return true;}
-  if(n==="betlabblackjack"){betlabblackjack(i);return true;}
-  if(n==="betlabhighlow"){betlabhighlow(i);return true;}
-  if(n==="betlabrace"){betlabrace(i);return true;}
+  if(n==="betlabcoinflip"){betlabcf(i, client);return true;}
+  if(n==="betlabdice"){betlabdice(i, client);return true;}
+  if(n==="betlabblackjack"){betlabblackjack(i, client);return true;}
+  if(n==="betlabhighlow"){betlabhighlow(i, client);return true;}
+  if(n==="betlabrace"){betlabrace(i, client);return true;}
   if(n==="betlabspin"){const {betlabspin}=require("./dailyspin");betlabspin(i);return true;}
   if(n==="giveaway"){const {startGiveaway}=require("./giveaway");startGiveaway(i);return true;}
   if(n==="betlabinvest"){const {betlabinvest}=require("./investments");betlabinvest(i);return true;}
@@ -451,7 +451,7 @@ module.exports={handleMessage,handleReaction,handleCommand,handleBlackjackButton
 
 const DICE_EMOJI = ["⚀","⚁","⚂","⚃","⚄","⚅"];
 
-async function betlabdice(i) {
+async function betlabdice(i, client) {
   const amt=i.options.getInteger("anzahl");
   const guess=i.options.getInteger("zahl");
   const d=await getUser(i.user.id);
@@ -574,7 +574,7 @@ function showHand(hand,hideFirst=false){
 
 const bjGames=new Map();
 
-async function betlabblackjack(i) {
+async function betlabblackjack(i, client) {
   console.log("🃏 Blackjack Command erhalten von:", i.user.tag);
   const amt=i.options.getInteger("anzahl");
   console.log("💰 Einsatz:", amt);
@@ -871,7 +871,7 @@ async function bjResolve(i,playerHand,dealerHand,bet,coins){
 const hlGames = new Map();
 const HIGHLOW_MULTIPLIERS = [1.5, 2, 3, 4.5, 6, 8, 12, 18, 25, 40];
 
-async function betlabhighlow(i) {
+async function betlabhighlow(i, client) {
   const amt = i.options.getInteger("anzahl");
   const d = await getUser(i.user.id);
   
@@ -1057,7 +1057,7 @@ const RACE_ANIMALS = [
 
 const raceGames = new Map();
 
-async function betlabrace(i) {
+async function betlabrace(i, client) {
   const amt = i.options.getInteger("anzahl");
   const d = await getUser(i.user.id);
   

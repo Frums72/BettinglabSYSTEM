@@ -282,7 +282,7 @@ client.on("interactionCreate", async function(i) {
       if (inviteHandled) return;
       
       // Level Commands
-      const levelHandled = await handleLevelCommand(i);
+      const levelHandled = await handleLevelCommand(i, client);
       if (levelHandled) return;
       
       // Moderation Commands
