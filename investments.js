@@ -309,6 +309,12 @@ async function handleInvestmentButton(i, client) {
       }).eq("user_id", i.user.id);
     }
     
+    // Steuer zahlen
+    const { calculateTax, addTaxToJackpot } = require("./jackpot");
+    const tax = await addTaxToJackpot(i.user.id, amount, "investment", client);
+    const { trackProgress } = require("./quests");
+    await trackProgress(i.user.id, "tax_paid", tax);
+    
     // Projekt-Total updaten - KORREKT
     const projectData = await getProjectData();
     const totalKey = `${project}_total`;

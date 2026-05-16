@@ -3,6 +3,15 @@ const supabase = require("./db");
 const { log } = require("./logger");
 const { trackProgress } = require("./quests");
 
+// Steuer Helper
+async function applyTax(userId, amount, source, client) {
+  const { calculateTax, addTaxToJackpot } = require("./jackpot");
+  const tax = calculateTax(amount);
+  await addTaxToJackpot(userId, amount, source, client);
+  await trackProgress(userId, "tax_paid", tax);
+  return tax;
+}
+
 const COLOR = 0xE67E22;
 const IMAGE = "https://s1.directupload.eu/images/260424/twd9ydz3.jpg";
 
@@ -239,7 +248,16 @@ async function betlabcf(i) {
   
   // Ergebnis berechnen
   const won=Math.random()<0.5;
-  const newC=won?d.coins+amt:d.coins-amt;
+  
+  // Steuer berechnen (nur bei Gewinn)
+  let tax = 0;
+  let netWin = amt;
+  if (won) {
+    tax = await applyTax(i.user.id, amt, "coinflip", client);
+    netWin = amt - tax;
+  }
+  
+  const newC=won?d.coins+netWin:d.coins-amt;
   
   let bonusXP=0;
   const now=Date.now();
@@ -261,33 +279,16 @@ async function betlabcf(i) {
   await trackProgress(i.user.id,"coinflips",1);
   if(won)await trackProgress(i.user.id,"coins_earn",amt);
   
-  // Steuer abziehen (1% aufgerundet) - NUR bei Gewinn
-  let tax = 0;
-  let netWin = amt;
-  if (won) {
-    const { calculateTax, addTaxToJackpot } = require("./jackpot");
-    tax = calculateTax(amt);
-    netWin = amt - tax;
-    
-    // Coins anpassen
-    await supabase.from("levels").update({ coins: data.coins + netWin }).eq("user_id", i.user.id);
-    
-    // Jackpot erhöhen
-    await addTaxToJackpot(i.user.id, amt, "coinflip", client);
-  }
-  
-  const newC = won ? data.coins + netWin : data.coins - amt;
-  
   // Ergebnis Embed
   let resultDesc = `**Einsatz:** ${amt} Coins\n\n`;
   if(won) {
-    resultDesc += `# 🎉 GEWONNEN!\n\n✅ **+${amt} Coins**`;
+    resultDesc += `# 🎉 GEWONNEN!\n\n✅ **Gewinn:** +${amt} Coins`;
     if(tax > 0) resultDesc += `\n💸 **Steuer:** -${tax} Coins (1%)`;
-    resultDesc += `\n💰 **Netto-Gewinn:** +${netWin} Coins`;
+    resultDesc += `\n💰 **Netto:** +${netWin} Coins`;
     if(bonusXP>0) resultDesc += `\n🎁 **Bonus:** +${bonusXP} XP`;
-    resultDesc += `\n\n💼 **Neue Balance:** ${newC} Coins`;
+    resultDesc += `\n\n💼 **Balance:** ${newC} Coins`;
   } else {
-    resultDesc += `# 💔 VERLOREN!\n\n❌ **-${amt} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
+    resultDesc += `# 💔 VERLOREN!\n\n❌ **-${amt} Coins**\n\n💰 **Balance:** ${newC} Coins`;
   }
   
   const resultEmbed = new EmbedBuilder()
@@ -484,7 +485,16 @@ async function betlabdice(i) {
   const rolled=Math.floor(Math.random()*6)+1;
   const won=rolled===guess;
   const winAmount=won?amt*5:0;
-  const newC=won?d.coins+winAmount:d.coins-amt;
+  
+  // Steuer berechnen (nur bei Gewinn)
+  let tax = 0;
+  let netWin = winAmount;
+  if (won) {
+    tax = await applyTax(i.user.id, winAmount, "dice", client);
+    netWin = winAmount - tax;
+  }
+  
+  const newC=won?d.coins+netWin:d.coins-amt;
   
   // XP Bonus bei Gewinn
   let bonusXP=0;
@@ -506,11 +516,13 @@ async function betlabdice(i) {
   
   let resultDesc=`**Einsatz:** ${amt} Coins\n**Deine Wahl:** ${guess}\n**Gewürfelt:** ${DICE_EMOJI[rolled-1]} **${rolled}**\n\n`;
   if(won){
-    resultDesc+=`# 🎉 RICHTIG GERATEN!\n\n✅ **+${winAmount} Coins** (5x Gewinn!)`;
+    resultDesc+=`# 🎉 RICHTIG GERATEN!\n\n✅ **Gewinn:** +${winAmount} Coins (5x!)`;
+    if(tax > 0) resultDesc+=`\n💸 **Steuer:** -${tax} Coins (1%)`;
+    resultDesc+=`\n💰 **Netto:** +${netWin} Coins`;
     if(bonusXP>0)resultDesc+=`\n🎁 **Bonus:** +${bonusXP} XP`;
-    resultDesc+=`\n\n💰 **Neue Balance:** ${newC} Coins`;
+    resultDesc+=`\n\n💼 **Balance:** ${newC} Coins`;
   }else{
-    resultDesc+=`# 💔 FALSCH!\n\n❌ **-${amt} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
+    resultDesc+=`# 💔 FALSCH!\n\n❌ **-${amt} Coins**\n\n💰 **Balance:** ${newC} Coins`;
   }
   
   const resultEmbed=new EmbedBuilder()
@@ -728,13 +740,21 @@ async function handleBlackjackButton(i,client){
 
 async function bjBlackjack(i,playerHand,dealerHand,bet,d){
   const winAmount=Math.floor(bet*2.5);
-  const newC=d.coins+winAmount;
+  
+  // Steuer berechnen
+  const tax = await applyTax(i.user.id, winAmount - bet, "blackjack", i.client);
+  const netWin = (winAmount - bet) - tax;
+  const newC=d.coins+netWin;
+  
   await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
   
   let desc=`**Einsatz:** ${bet} Coins\n\n`;
   desc+=`**Deine Hand:** ${showHand(playerHand)}\n**Wert:** 21\n\n`;
   desc+=`**Dealer:** ${showHand(dealerHand)}\n**Wert:** ${handValue(dealerHand)}\n\n`;
-  desc+=`# 🎉 BLACKJACK!\n\n✅ **+${winAmount} Coins** (2.5x Gewinn!)\n\n💰 **Neue Balance:** ${newC} Coins`;
+  desc+=`# 🎉 BLACKJACK!\n\n✅ **Gewinn:** +${winAmount - bet} Coins (2.5x!)`;
+  if(tax > 0) desc+=`\n💸 **Steuer:** -${tax} Coins (1%)`;
+  desc+=`\n💰 **Netto:** +${netWin} Coins`;
+  desc+=`\n\n💼 **Balance:** ${newC} Coins`;
   
   const embed=new EmbedBuilder()
     .setColor(0x57F287)
@@ -777,12 +797,16 @@ async function bjResolve(i,playerHand,dealerHand,bet,coins){
   const dVal=handValue(dealerHand);
   const d=await getUser(i.user.id);
   
-  let result,winAmount,newC,bonusXP=0;
+  let result,winAmount,newC,bonusXP=0,tax=0,netWin=0;
   
   if(dVal>21||pVal>dVal){
     result="WIN";
     winAmount=bet*2;
-    newC=coins+bet;
+    
+    // Steuer berechnen
+    tax = await applyTax(i.user.id, bet, "blackjack", i.client);
+    netWin = bet - tax;
+    newC=coins+netWin;
     
     // XP Bonus bei Gewinn
     const now=Date.now();
@@ -816,13 +840,15 @@ async function bjResolve(i,playerHand,dealerHand,bet,coins){
   desc+=`**Dealer:** ${showHand(dealerHand)}\n**Wert:** ${dVal}\n\n`;
   
   if(result==="WIN"){
-    desc+=`# 🎉 GEWONNEN!\n\n✅ **+${bet} Coins**`;
+    desc+=`# 🎉 GEWONNEN!\n\n✅ **Gewinn:** +${bet} Coins`;
+    if(tax > 0) desc+=`\n💸 **Steuer:** -${tax} Coins (1%)`;
+    desc+=`\n💰 **Netto:** +${netWin} Coins`;
     if(bonusXP>0)desc+=`\n🎁 **Bonus:** +${bonusXP} XP`;
-    desc+=`\n\n💰 **Neue Balance:** ${newC} Coins`;
+    desc+=`\n\n💼 **Balance:** ${newC} Coins`;
   }else if(result==="PUSH"){
     desc+=`# 🤝 UNENTSCHIEDEN!\n\n↔️ **Einsatz zurück**\n\n💰 **Balance:** ${newC} Coins`;
   }else{
-    desc+=`# 💔 VERLOREN!\n\n❌ **-${bet} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
+    desc+=`# 💔 VERLOREN!\n\n❌ **-${bet} Coins**\n\n💰 **Balance:** ${newC} Coins`;
   }
   
   const embed=new EmbedBuilder()
@@ -891,7 +917,12 @@ async function handleHighLowButton(i, client) {
   if(i.customId === "hl_cashout") {
     const multi = HIGHLOW_MULTIPLIERS[round];
     const winAmount = Math.floor(bet * multi);
-    const newC = coins + winAmount - bet;
+    const profit = winAmount - bet;
+    
+    // Steuer berechnen (auf Profit)
+    const tax = await applyTax(i.user.id, profit, "highlow", client);
+    const netProfit = profit - tax;
+    const newC = coins + netProfit;
     
     const d = await getUser(i.user.id);
     
@@ -913,9 +944,11 @@ async function handleHighLowButton(i, client) {
     }
     
     let desc = `**Einsatz:** ${bet} Coins\n**Runden geschafft:** ${round}\n**Multiplikator:** ${multi}x\n\n`;
-    desc += `# 💰 AUSGEZAHLT!\n\n✅ **+${winAmount} Coins**`;
+    desc += `# 💰 AUSGEZAHLT!\n\n✅ **Gewinn:** +${profit} Coins`;
+    if(tax > 0) desc += `\n💸 **Steuer:** -${tax} Coins (1%)`;
+    desc += `\n💰 **Netto:** +${netProfit} Coins`;
     if(bonusXP > 0) desc += `\n🎁 **Bonus:** +${bonusXP} XP`;
-    desc += `\n\n💰 **Neue Balance:** ${newC} Coins`;
+    desc += `\n\n💼 **Balance:** ${newC} Coins`;
     
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
@@ -1159,7 +1192,17 @@ async function handleRaceButton(i, client) {
   
   const winAmount = Math.floor(bet * multi);
   const d = await getUser(i.user.id);
-  const newC = result === "LOSS" ? coins - bet : coins - bet + winAmount;
+  
+  // Steuer berechnen (nur bei WIN = Top 3)
+  let tax = 0;
+  let netProfit = 0;
+  if(result === "WIN") {
+    const profit = winAmount - bet;
+    tax = await applyTax(i.user.id, profit, "race", client);
+    netProfit = profit - tax;
+  }
+  
+  const newC = result === "LOSS" ? coins - bet : result === "WIN" ? coins + netProfit : coins;
   
   // XP Bonus bei Top 3
   let bonusXP = 0;
@@ -1196,15 +1239,18 @@ async function handleRaceButton(i, client) {
   desc3 += `\n`;
   
   if(result === "WIN") {
-    desc3 += `# 🎉 PLATZ ${place}!\n\n✅ **+${winAmount} Coins** (${multi}x)`;
+    const profit = winAmount - bet;
+    desc3 += `# 🎉 PLATZ ${place}!\n\n✅ **Gewinn:** +${profit} Coins (${multi}x)`;
+    if(tax > 0) desc3 += `\n💸 **Steuer:** -${tax} Coins (1%)`;
+    desc3 += `\n💰 **Netto:** +${netProfit} Coins`;
     if(bonusXP > 0) desc3 += `\n🎁 **Bonus:** +${bonusXP} XP`;
   } else if(result === "PUSH") {
-    desc3 += `# 🤝 PLATZ ${place}!\n\n↔️ **Einsatz zurück** (+${bet} Coins)`;
+    desc3 += `# 🤝 PLATZ ${place}!\n\n↔️ **Einsatz zurück**`;
   } else {
     desc3 += `# 💔 PLATZ ${place}!\n\n❌ **-${bet} Coins**`;
   }
   
-  desc3 += `\n\n💰 **Neue Balance:** ${newC} Coins`;
+  desc3 += `\n\n💼 **Balance:** ${newC} Coins`;
   
   const resultEmbed = new EmbedBuilder()
     .setColor(result === "WIN" ? 0x57F287 : result === "PUSH" ? 0xF1C40F : 0xED4245)
