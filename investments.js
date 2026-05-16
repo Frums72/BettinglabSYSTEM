@@ -210,7 +210,7 @@ async function handleInvestmentButton(i, client) {
   if (i.customId === "invest_confirm") {
     await i.deferUpdate();
     
-    const { project, amount, currentLevel, newLevel, returnAmount, totalReturn, levelStats } = pending;
+    const { project, amount, currentLevel, returnAmount, totalReturn, levelStats } = pending;
     const config = PROJECT_CONFIG[project];
     
     // Coins abziehen
@@ -219,6 +219,28 @@ async function handleInvestmentButton(i, client) {
     if (!userData || userData.coins < amount) {
       pendingInvestments.delete(i.user.id);
       return i.editReply({ content: "❌ Nicht genug Coins!", embeds: [], components: [] });
+    }
+    
+    // Prüfe ob User schon aktives Investment in DIESEM Projekt hat
+    const { data: existingInv } = await supabase
+      .from("active_investments")
+      .select("*")
+      .eq("user_id", i.user.id)
+      .eq("project", project);
+    
+    if (existingInv && existingInv.length > 0) {
+      pendingInvestments.delete(i.user.id);
+      const endTime = new Date(existingInv[0].end_time);
+      const now = new Date();
+      const diff = endTime - now;
+      const hours = Math.floor(diff / 1000 / 60 / 60);
+      const minutes = Math.floor((diff / 1000 / 60) % 60);
+      
+      return i.editReply({ 
+        content: `❌ Du hast bereits ein aktives Investment in ${config.name}!\n⏰ Auszahlung in: **${hours}h ${minutes}min**\n\n💡 Du kannst aber in die anderen 2 Projekte investieren!`, 
+        embeds: [], 
+        components: [] 
+      });
     }
     
     // XP Bonus (5 XP pro 100 Coins, max 25, 60s Cooldown)
@@ -266,12 +288,12 @@ async function handleInvestmentButton(i, client) {
         return { level, currentXp };
       };
       
-      const { level: newLevel, currentXp } = getLevelFromTotalXp(newTotalXp);
+      const { level: newUserLevel, currentXp } = getLevelFromTotalXp(newTotalXp);
       
       await supabase.from("levels").update({
         coins: userData.coins - amount,
         xp: currentXp,
-        level: newLevel,
+        level: newUserLevel,
         total_xp: newTotalXp
       }).eq("user_id", i.user.id);
       
@@ -287,15 +309,17 @@ async function handleInvestmentButton(i, client) {
       }).eq("user_id", i.user.id);
     }
     
-    // Projekt-Total updaten
+    // Projekt-Total updaten - KORREKT
     const projectData = await getProjectData();
     const totalKey = `${project}_total`;
     const levelKey = `${project}_level`;
     
     const newTotal = projectData[totalKey] + amount;
+    const newProjectLevel = getCurrentLevel(project, newTotal); // RICHTIG berechnen!
+    
     const updateData = {};
     updateData[totalKey] = newTotal;
-    updateData[levelKey] = newLevel;
+    updateData[levelKey] = newProjectLevel;
     
     await supabase.from("project_levels").update(updateData).eq("id", projectData.id);
     
@@ -326,8 +350,8 @@ async function handleInvestmentButton(i, client) {
     await i.editReply({ embeds: [embed], components: [] });
     
     // Level-Up Check
-    if (newLevel > currentLevel) {
-      await handleProjectLevelUp(client, project, currentLevel, newLevel);
+    if (newProjectLevel > currentLevel) {
+      await handleProjectLevelUp(client, project, currentLevel, newProjectLevel);
     }
     
     pendingInvestments.delete(i.user.id);
@@ -479,3 +503,69 @@ function startInvestmentSystem(client) {
 }
 
 module.exports = { betlabinvest, handleInvestmentButton, startInvestmentSystem };
+
+async function investreset(i) {
+  // Team-Check
+  if (!i.member.roles.cache.has("963870711678640188")) {
+    return i.reply({ content: "❌ Keine Berechtigung.", flags: 64 });
+  }
+  
+  const project = i.options.getString("projekt");
+  
+  const config = {
+    shop: { name: "🏪 SHOP", emoji: "🏪" },
+    fabrik: { name: "🏭 FABRIK", emoji: "🏭" },
+    casino: { name: "💎 CASINO", emoji: "💎" },
+    all: { name: "ALLE PROJEKTE", emoji: "🔄" }
+  }[project];
+  
+  if (project === "all") {
+    // Alle zurücksetzen
+    const { data: projectData } = await supabase.from("project_levels").select("*").single();
+    
+    await supabase.from("project_levels").update({
+      shop_total: 0,
+      shop_level: 1,
+      fabrik_total: 0,
+      fabrik_level: 1,
+      casino_total: 0,
+      casino_level: 1
+    }).eq("id", projectData.id);
+    
+    // Alle Investoren löschen
+    await supabase.from("project_investors").delete().neq("user_id", "");
+    
+    const embed = new EmbedBuilder()
+      .setColor(0xED4245)
+      .setTitle("⚠️ ALLE PROJEKTE ZURÜCKGESETZT")
+      .setDescription(`**ALLE Projekte wurden auf Level 1 zurückgesetzt!**\n\n🏪 SHOP → Level 1 (0 Coins)\n🏭 FABRIK → Level 1 (0 Coins)\n💎 CASINO → Level 1 (0 Coins)\n\n⚠️ Alle Investor-Listen wurden geleert.`)
+      .setTimestamp();
+    
+    return i.reply({ embeds: [embed] });
+    
+  } else {
+    // Einzelnes Projekt zurücksetzen
+    const { data: projectData } = await supabase.from("project_levels").select("*").single();
+    
+    const updateData = {};
+    updateData[`${project}_total`] = 0;
+    updateData[`${project}_level`] = 1;
+    
+    await supabase.from("project_levels").update(updateData).eq("id", projectData.id);
+    
+    // Investoren für dieses Projekt löschen
+    const updateInvestors = {};
+    updateInvestors[`${project}_invested`] = false;
+    await supabase.from("project_investors").update(updateInvestors).eq(`${project}_invested`, true);
+    
+    const embed = new EmbedBuilder()
+      .setColor(0xF1C40F)
+      .setTitle("⚠️ PROJEKT ZURÜCKGESETZT")
+      .setDescription(`${config.name} wurde auf Level 1 zurückgesetzt!\n\n• Level: **1**\n• Investiert: **0 Coins**\n\n⚠️ Investor-Liste wurde geleert.`)
+      .setTimestamp();
+    
+    return i.reply({ embeds: [embed] });
+  }
+}
+
+module.exports = { betlabinvest, handleInvestmentButton, startInvestmentSystem, investreset };

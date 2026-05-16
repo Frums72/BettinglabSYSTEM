@@ -152,6 +152,18 @@ const commands = [
     .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
     .addIntegerOption(o => o.setName("xp").setDescription("Total XP Anzahl").setRequired(true)),
   new SlashCommandBuilder()
+    .setName("betlabstats")
+    .setDescription("Deine komplette Statistik!"),
+  new SlashCommandBuilder()
+    .setName("investreset")
+    .setDescription("Projekt zurücksetzen (Team Only)")
+    .addStringOption(o => o.setName("projekt").setDescription("Welches Projekt?").setRequired(true).addChoices(
+      { name: "🏪 SHOP", value: "shop" },
+      { name: "🏭 FABRIK", value: "fabrik" },
+      { name: "💎 CASINO", value: "casino" },
+      { name: "🔄 ALLE", value: "all" }
+    )),
+  new SlashCommandBuilder()
     .setName("betlabranking")
     .setDescription("TOP 5 Rankings")
     .addStringOption(o => o.setName("type").setDescription("Typ").setRequired(true)
