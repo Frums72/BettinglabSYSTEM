@@ -349,6 +349,47 @@ async function handleInvestmentButton(i, client) {
     
     await i.editReply({ embeds: [embed], components: [] });
     
+    // Channel Announcement
+    const INVESTMENT_CHANNEL = "1505143293913206824";
+    try {
+      const announceCh = await client.channels.fetch(INVESTMENT_CHANNEL);
+      if (announceCh) {
+        const projectData2 = await getProjectData();
+        const currentTotal = projectData2[totalKey];
+        const progress = getNextLevelProgress(project, currentTotal, newProjectLevel);
+        
+        const barLength = 10;
+        const filled = Math.floor((progress.percent / 100) * barLength);
+        const bar = "█".repeat(filled) + "░".repeat(barLength - filled);
+        
+        let announceDesc = `**${config.name} Investment!**\n\n`;
+        announceDesc += `👤 **${i.user.username}** hat **${amount.toLocaleString()} Coins** investiert!\n\n`;
+        announceDesc += `📊 **PROJEKT PROGRESS:**\n`;
+        announceDesc += `${bar} ${progress.percent}%\n`;
+        announceDesc += `${currentTotal.toLocaleString()} / ${progress.needed.toLocaleString()} Coins → Level ${newProjectLevel}\n\n`;
+        
+        if (newProjectLevel < PROJECT_CONFIG[project].levels.length) {
+          const remaining = progress.needed - currentTotal;
+          announceDesc += `🎯 Noch **${remaining.toLocaleString()} Coins** bis Level-Up!\n\n`;
+        } else {
+          announceDesc += `🏆 **MAX LEVEL ERREICHT!**\n\n`;
+        }
+        
+        announceDesc += `💡 Investiere auch und profitiere gemeinsam!`;
+        
+        const announceEmbed = new EmbedBuilder()
+          .setColor(0xF1C40F)
+          .setTitle("💰 NEUES INVESTMENT!")
+          .setDescription(announceDesc)
+          .setThumbnail(i.user.displayAvatarURL())
+          .setTimestamp();
+        
+        await announceCh.send({ embeds: [announceEmbed] });
+      }
+    } catch (e) {
+      console.error("Announcement fehler:", e);
+    }
+    
     // Level-Up Check
     if (newProjectLevel > currentLevel) {
       await handleProjectLevelUp(client, project, currentLevel, newProjectLevel);
