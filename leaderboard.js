@@ -37,13 +37,14 @@ async function postDailyLeaderboard(client) {
   // Top 5 holen (Coins-basiert)
   const topPlayers = await getTopPlayers("coins", 5);
   
-  // NUR AM MONTAG 08:00 UTC belohnen
+  // NUR AM MONTAG 08:00 UTC belohnen + Jackpot ziehen
   let rewarded = false;
   if (isMonday && justAfterMidnight) {
     const today = now.toISOString().split('T')[0];
     
     // Prüfe ob heute schon belohnt
     if (lastRewardDate !== today) {
+      // Leaderboard Rewards
       for (let i = 0; i < Math.min(3, topPlayers.length); i++) {
         const player = topPlayers[i];
         const reward = REWARDS[i + 1];
@@ -56,6 +57,11 @@ async function postDailyLeaderboard(client) {
         
         console.log(`💰 Platz ${i + 1}: ${player.user_id} erhält ${reward} Coins`);
       }
+      
+      // Jackpot ziehen
+      const { drawWeeklyJackpot } = require("./jackpot");
+      await drawWeeklyJackpot(client);
+      
       lastRewardDate = today;
       rewarded = true;
     }

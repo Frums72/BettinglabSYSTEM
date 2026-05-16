@@ -37,6 +37,8 @@ const client = new Client({
 
 const commands = [
   // Help & Info
+  new SlashCommandBuilder().setName("help").setDescription("Alle Commands anzeigen"),
+  new SlashCommandBuilder().setName("teamhelp").setDescription("Team Commands (Team Only)"),
   new SlashCommandBuilder().setName("betlabhelp").setDescription("Alle Commands anzeigen"),
   
   // Embed Builder

@@ -261,12 +261,31 @@ async function betlabcf(i) {
   await trackProgress(i.user.id,"coinflips",1);
   if(won)await trackProgress(i.user.id,"coins_earn",amt);
   
+  // Steuer abziehen (1% aufgerundet) - NUR bei Gewinn
+  let tax = 0;
+  let netWin = amt;
+  if (won) {
+    const { calculateTax, addTaxToJackpot } = require("./jackpot");
+    tax = calculateTax(amt);
+    netWin = amt - tax;
+    
+    // Coins anpassen
+    await supabase.from("levels").update({ coins: data.coins + netWin }).eq("user_id", i.user.id);
+    
+    // Jackpot erhöhen
+    await addTaxToJackpot(i.user.id, amt, "coinflip", client);
+  }
+  
+  const newC = won ? data.coins + netWin : data.coins - amt;
+  
   // Ergebnis Embed
   let resultDesc = `**Einsatz:** ${amt} Coins\n\n`;
   if(won) {
     resultDesc += `# 🎉 GEWONNEN!\n\n✅ **+${amt} Coins**`;
+    if(tax > 0) resultDesc += `\n💸 **Steuer:** -${tax} Coins (1%)`;
+    resultDesc += `\n💰 **Netto-Gewinn:** +${netWin} Coins`;
     if(bonusXP>0) resultDesc += `\n🎁 **Bonus:** +${bonusXP} XP`;
-    resultDesc += `\n\n💰 **Neue Balance:** ${newC} Coins`;
+    resultDesc += `\n\n💼 **Neue Balance:** ${newC} Coins`;
   } else {
     resultDesc += `# 💔 VERLOREN!\n\n❌ **-${amt} Coins**\n\n💰 **Neue Balance:** ${newC} Coins`;
   }
@@ -403,6 +422,8 @@ async function betlabeditxp(i) {
 
 async function handleCommand(i) {
   const n=i.commandName;
+  if(n==="help"){const {helpCommand}=require("./help_commands");helpCommand(i);return true;}
+  if(n==="teamhelp"){const {teamhelpCommand}=require("./help_commands");teamhelpCommand(i);return true;}
   if(n==="betlabcoins"){betlabcoins(i);return true;}
   if(n==="betlabxp"){betlabxp(i);return true;}
   if(n==="betlabcoinflip"){betlabcf(i);return true;}

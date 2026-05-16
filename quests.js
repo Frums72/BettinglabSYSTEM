@@ -6,11 +6,49 @@ const DAILY_CHANNEL = "1504227532667355305";
 const LEVELUP_CHANNEL = "1504133135468728533";
 
 const QUEST_TYPES = {
+  // Original
   messages: { name: "Nachrichten schreiben", l: 10, m: 30, h: 100, wl: 200, wm: 500, wh: 1000 },
   xp: { name: "XP sammeln", l: 100, m: 300, h: 1000, wl: 2000, wm: 5000, wh: 10000 },
   reactions: { name: "Reactions geben", l: 5, m: 15, h: 50, wl: 100, wm: 250, wh: 500 },
   coinflips: { name: "Coinflips spielen", l: 3, m: 10, h: 25, wl: 50, wm: 150, wh: 300 },
-  invites: { name: "Spieler einladen", l: 1, m: 3, h: 10, wl: 5, wm: 15, wh: 30 }
+  invites: { name: "Spieler einladen", l: 1, m: 3, h: 10, wl: 5, wm: 15, wh: 30 },
+  
+  // Gambling Games
+  dice_games: { name: "Dice spielen", l: 3, m: 10, h: 20, wl: 30, wm: 80, wh: 150 },
+  blackjack_games: { name: "Blackjack spielen", l: 2, m: 8, h: 15, wl: 20, wm: 50, wh: 100 },
+  highlow_games: { name: "High/Low spielen", l: 2, m: 8, h: 15, wl: 20, wm: 50, wh: 100 },
+  race_games: { name: "Race spielen", l: 2, m: 8, h: 15, wl: 20, wm: 50, wh: 100 },
+  
+  // Gambling Wins
+  coinflip_wins: { name: "Coinflips gewinnen", l: 2, m: 5, h: 15, wl: 20, wm: 50, wh: 120 },
+  dice_wins: { name: "Dice gewinnen", l: 1, m: 3, h: 8, wl: 10, wm: 25, wh: 60 },
+  blackjack_wins: { name: "Blackjack gewinnen", l: 1, m: 5, h: 10, wl: 15, wm: 35, wh: 70 },
+  
+  // Gambling Totals
+  coins_gambled: { name: "Coins gamblen", l: 100, m: 500, h: 2000, wl: 5000, wm: 15000, wh: 40000 },
+  coins_won: { name: "Coins gewinnen", l: 50, m: 250, h: 1000, wl: 2500, wm: 7500, wh: 20000 },
+  
+  // Investment
+  invest_coins: { name: "Coins investieren", l: 100, m: 500, h: 2000, wl: 5000, wm: 15000, wh: 40000 },
+  invest_shop: { name: "In Shop investieren", l: 1, m: 3, h: 8, wl: 10, wm: 25, wh: 50 },
+  invest_fabrik: { name: "In Fabrik investieren", l: 1, m: 3, h: 8, wl: 10, wm: 25, wh: 50 },
+  invest_casino: { name: "In Casino investieren", l: 1, m: 3, h: 8, wl: 10, wm: 25, wh: 50 },
+  
+  // Daily Systems
+  daily_rewards_claimed: { name: "Daily Rewards abholen", l: 1, m: 3, h: 7, wl: 5, wm: 7, wh: 7 },
+  daily_spins: { name: "Daily Spins drehen", l: 1, m: 3, h: 7, wl: 5, wm: 7, wh: 7 },
+  
+  // Taxes & Jackpot
+  tax_paid: { name: "Steuer zahlen", l: 5, m: 20, h: 50, wl: 100, wm: 300, wh: 700 },
+  
+  // Streaks
+  coinflip_streak: { name: "Coinflip Streak erreichen", l: 2, m: 3, h: 5, wl: 5, wm: 8, wh: 12 },
+  highlow_streak: { name: "High/Low Streak erreichen", l: 3, m: 5, h: 8, wl: 8, wm: 12, wh: 18 },
+  daily_streak: { name: "Daily Reward Streak haben", l: 2, m: 3, h: 5, wl: 3, wm: 5, wh: 7 },
+  
+  // Variety
+  different_games: { name: "Verschiedene Games spielen", l: 2, m: 3, h: 5, wl: 3, wm: 4, wh: 5 },
+  all_projects: { name: "In alle Projekte investieren", l: 1, m: 1, h: 1, wl: 2, wm: 3, wh: 5 }
 };
 
 let dailyMessageId = null;
