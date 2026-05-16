@@ -221,9 +221,71 @@ async function handleInvestmentButton(i, client) {
       return i.editReply({ content: "❌ Nicht genug Coins!", embeds: [], components: [] });
     }
     
-    await supabase.from("levels").update({
-      coins: userData.coins - amount
-    }).eq("user_id", i.user.id);
+    // XP Bonus (5 XP pro 100 Coins, max 25, 60s Cooldown)
+    let bonusXP = 0;
+    const now = Date.now();
+    const cfXpCd = new Map();
+    const COINFLIP_XP_CD = 60000;
+    const MAX_CF_XP = 25;
+    
+    const lastXp = cfXpCd.get(i.user.id);
+    if (!lastXp || now - lastXp >= COINFLIP_XP_CD) {
+      bonusXP = Math.min(Math.floor(amount / 100) * 5, MAX_CF_XP);
+      cfXpCd.set(i.user.id, now);
+      
+      // XP mit Boost berechnen
+      const xpBoost = userData.xp_boost || 0;
+      const xpBoostUntil = userData.xp_boost_until;
+      let boostActive = false;
+      if (xpBoost > 0 && xpBoostUntil) {
+        const boostEnd = new Date(xpBoostUntil);
+        if (now < boostEnd.getTime()) {
+          boostActive = true;
+        }
+      }
+      
+      const actualXP = boostActive ? Math.floor(bonusXP * (1 + xpBoost / 100)) : bonusXP;
+      const newTotalXp = userData.total_xp + actualXP;
+      
+      // Level berechnen
+      const getLevelFromTotalXp = (totalXp) => {
+        let level = 0;
+        let xpNeeded = 0;
+        let currentXp = totalXp;
+        
+        for (let i = 0; i < 100; i++) {
+          xpNeeded = 100 + (i * 50);
+          if (currentXp >= xpNeeded) {
+            currentXp -= xpNeeded;
+            level++;
+          } else {
+            break;
+          }
+        }
+        
+        return { level, currentXp };
+      };
+      
+      const { level: newLevel, currentXp } = getLevelFromTotalXp(newTotalXp);
+      
+      await supabase.from("levels").update({
+        coins: userData.coins - amount,
+        xp: currentXp,
+        level: newLevel,
+        total_xp: newTotalXp
+      }).eq("user_id", i.user.id);
+      
+      // Quest Tracking
+      try {
+        const { trackProgress } = require("./quests");
+        await trackProgress(i.user.id, "xp", actualXP);
+      } catch (e) {}
+      
+    } else {
+      await supabase.from("levels").update({
+        coins: userData.coins - amount
+      }).eq("user_id", i.user.id);
+    }
     
     // Projekt-Total updaten
     const projectData = await getProjectData();
@@ -258,7 +320,7 @@ async function handleInvestmentButton(i, client) {
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
       .setTitle("✅ INVESTMENT ERFOLGREICH!")
-      .setDescription(`${config.name}\n\n💰 **${amount.toLocaleString()} Coins** investiert!\n\n⏰ Auszahlung: <t:${Math.floor(endTime.getTime() / 1000)}:R>\n\n📊 **Erwarteter Return:**\n${levelStats.return}% = **+${returnAmount.toLocaleString()} Coins**`)
+      .setDescription(`${config.name}\n\n💰 **${amount.toLocaleString()} Coins** investiert!${bonusXP > 0 ? `\n🎁 **Bonus:** +${bonusXP} XP` : ''}\n\n⏰ Auszahlung: <t:${Math.floor(endTime.getTime() / 1000)}:R>\n\n📊 **Erwarteter Return:**\n${levelStats.return}% = **+${returnAmount.toLocaleString()} Coins**`)
       .setThumbnail(i.user.displayAvatarURL());
     
     await i.editReply({ embeds: [embed], components: [] });
