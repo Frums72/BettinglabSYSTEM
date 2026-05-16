@@ -14,7 +14,8 @@ const { startEmbedBuilder, handleEmbedBuilder } = require("./embedbuilder");
 const { handleMessage: handleAutomod } = require("./automod");
 const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand, handleBlackjackButton, handleHighLowButton, handleRaceButton } = require("./levels");
 const { handleDailySpinButton } = require("./dailyspin");
-const { handleGiveawayDraw } = require("./giveaway");
+const { handleGiveawayReaction } = require("./giveaway");
+const { handleInvestmentButton, startInvestmentSystem } = require("./investments");
 const { startReminderSystem } = require("./reminders");
 const { startLeaderboardSystem } = require("./leaderboard");
 const { handleCommand: handleModCommand } = require("./moderation");
@@ -132,6 +133,12 @@ const commands = [
     .addStringOption(o => o.setName("gewinn").setDescription("Gewinn (Zahl = Coins, Text = Custom)").setRequired(true))
     .addStringOption(o => o.setName("dauer").setDescription("Dauer (z.B. 1h, 30m, 2d, 1d 12h)").setRequired(true)),
   new SlashCommandBuilder()
+    .setName("giveaway")
+    .setDescription("Starte ein Giveaway!")
+    .addChannelOption(o => o.setName("channel").setDescription("In welchem Channel?").setRequired(true))
+    .addStringOption(o => o.setName("gewinn").setDescription("Was gibt es zu gewinnen? (z.B. '500 Coins' oder 'Nitro')").setRequired(true))
+    .addIntegerOption(o => o.setName("dauer").setDescription("Dauer in Minuten (Standard: 60)").setMinValue(1)),
+  new SlashCommandBuilder()
     .setName("betlabeditcoins")
     .setDescription("Coins manuell setzen")
     .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
@@ -141,6 +148,15 @@ const commands = [
     .setDescription("XP manuell setzen")
     .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
     .addIntegerOption(o => o.setName("xp").setDescription("Total XP Anzahl").setRequired(true)),
+  new SlashCommandBuilder()
+    .setName("betlabinvest")
+    .setDescription("Investiere in Projekte!")
+    .addStringOption(o => o.setName("projekt").setDescription("Welches Projekt?").setRequired(true).addChoices(
+      { name: "🏪 SHOP (Sicher)", value: "shop" },
+      { name: "🏭 FABRIK (Mittel)", value: "fabrik" },
+      { name: "💎 CASINO (Hoch)", value: "casino" }
+    ))
+    .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins investieren?").setRequired(true).setMinValue(100)),
   new SlashCommandBuilder()
     .setName("betlabranking")
     .setDescription("TOP 5 Rankings")
@@ -211,6 +227,9 @@ client.once("clientReady", async function() {
   
   // Leaderboard System starten
   startLeaderboardSystem(client);
+  
+  // Investment System starten
+  startInvestmentSystem(client);
 });
 
 client.on("guildCreate", async function(guild) {
@@ -297,6 +316,12 @@ client.on("interactionCreate", async function(i) {
       return;
     }
     
+    // Investment Buttons
+    if (i.customId && (i.customId === "invest_confirm" || i.customId === "invest_cancel")) {
+      await handleInvestmentButton(i, client);
+      return;
+    }
+    
     // Giveaway Draw Button
     if (i.customId === "giveaway_draw") {
       await handleGiveawayDraw(i);
@@ -328,6 +353,7 @@ client.on("messageReactionAdd", async function(reaction, user) {
   try {
     if (reaction.partial) await reaction.fetch();
     await handleReaction(reaction, user, client);
+    await handleGiveawayReaction(reaction, user, client);
   } catch(e) {
     console.error("Reaction Fehler:", e);
   }
