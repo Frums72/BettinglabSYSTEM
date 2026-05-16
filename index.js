@@ -14,6 +14,7 @@ const { startEmbedBuilder, handleEmbedBuilder } = require("./embedbuilder");
 const { handleMessage: handleAutomod } = require("./automod");
 const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand, handleBlackjackButton, handleHighLowButton, handleRaceButton } = require("./levels");
 const { handleDailySpinButton } = require("./dailyspin");
+const { handleGiveawayDraw } = require("./giveaway");
 const { startReminderSystem } = require("./reminders");
 const { startLeaderboardSystem } = require("./leaderboard");
 const { handleCommand: handleModCommand } = require("./moderation");
@@ -124,6 +125,12 @@ const commands = [
   new SlashCommandBuilder()
     .setName("betlabspin")
     .setDescription("Daily Spin - 1x pro Tag kostenlos!"),
+  new SlashCommandBuilder()
+    .setName("giveaway")
+    .setDescription("Giveaway starten (Nur Team)")
+    .addChannelOption(o => o.setName("channel").setDescription("Channel für das Giveaway").setRequired(true))
+    .addStringOption(o => o.setName("gewinn").setDescription("Gewinn (Zahl = Coins, Text = Custom)").setRequired(true))
+    .addStringOption(o => o.setName("dauer").setDescription("Dauer (z.B. 1h, 30m, 2d, 1d 12h)").setRequired(true)),
   new SlashCommandBuilder()
     .setName("betlabeditcoins")
     .setDescription("Coins manuell setzen")
@@ -287,6 +294,12 @@ client.on("interactionCreate", async function(i) {
     // Daily Spin Button
     if (i.customId === "daily_spin") {
       await handleDailySpinButton(i);
+      return;
+    }
+    
+    // Giveaway Draw Button
+    if (i.customId === "giveaway_draw") {
+      await handleGiveawayDraw(i);
       return;
     }
     
