@@ -15,6 +15,7 @@ const { handleMessage: handleAutomod } = require("./automod");
 const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand, handleBlackjackButton, handleHighLowButton, handleRaceButton } = require("./levels");
 const { handleDailySpinButton } = require("./dailyspin");
 const { startReminderSystem } = require("./reminders");
+const { startLeaderboardSystem } = require("./leaderboard");
 const { handleCommand: handleModCommand } = require("./moderation");
 const { postDailyRewards, handleDailyButton } = require("./dailyrewards");
 const { postDailyQuests, postWeeklyQuests, handleQuestButton, handleQuestClaim } = require("./quests");
@@ -200,6 +201,9 @@ client.once("clientReady", async function() {
   
   // Reminder System starten
   startReminderSystem(client);
+  
+  // Leaderboard System starten
+  startLeaderboardSystem(client);
 });
 
 client.on("guildCreate", async function(guild) {
