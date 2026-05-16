@@ -410,6 +410,7 @@ async function handleCommand(i) {
   if(n==="betlabblackjack"){betlabblackjack(i);return true;}
   if(n==="betlabhighlow"){betlabhighlow(i);return true;}
   if(n==="betlabrace"){betlabrace(i);return true;}
+  if(n==="betlabspin"){const {betlabspin}=require("./dailyspin");betlabspin(i);return true;}
   if(n==="betlabranking"){betlabranking(i);return true;}
   if(n==="betlabeditcoins"){betlabeditcoins(i);return true;}
   if(n==="betlabeditxp"){betlabeditxp(i);return true;}

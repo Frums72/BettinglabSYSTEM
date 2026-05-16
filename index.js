@@ -13,6 +13,8 @@ const { updateStats } = require("./stats");
 const { startEmbedBuilder, handleEmbedBuilder } = require("./embedbuilder");
 const { handleMessage: handleAutomod } = require("./automod");
 const { handleMessage: handleLevelMessage, handleReaction, handleCommand: handleLevelCommand, handleBlackjackButton, handleHighLowButton, handleRaceButton } = require("./levels");
+const { handleDailySpinButton } = require("./dailyspin");
+const { startReminderSystem } = require("./reminders");
 const { handleCommand: handleModCommand } = require("./moderation");
 const { postDailyRewards, handleDailyButton } = require("./dailyrewards");
 const { postDailyQuests, postWeeklyQuests, handleQuestButton, handleQuestClaim } = require("./quests");
@@ -119,6 +121,9 @@ const commands = [
     .setDescription("Race - 10 Tiere rennen!")
     .addIntegerOption(o => o.setName("anzahl").setDescription("Wie viele Coins setzen?").setRequired(true).setMinValue(1)),
   new SlashCommandBuilder()
+    .setName("betlabspin")
+    .setDescription("Daily Spin - 1x pro Tag kostenlos!"),
+  new SlashCommandBuilder()
     .setName("betlabeditcoins")
     .setDescription("Coins manuell setzen")
     .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
@@ -192,6 +197,9 @@ client.once("clientReady", async function() {
   }
   
   log(client, "SUCCESS", "Bot gestartet", "Tag: " + client.user.tag);
+  
+  // Reminder System starten
+  startReminderSystem(client);
 });
 
 client.on("guildCreate", async function(guild) {
@@ -269,6 +277,12 @@ client.on("interactionCreate", async function(i) {
     // Race Buttons
     if (i.customId && i.customId.startsWith("race_")) {
       await handleRaceButton(i, client);
+      return;
+    }
+    
+    // Daily Spin Button
+    if (i.customId === "daily_spin") {
+      await handleDailySpinButton(i);
       return;
     }
     
