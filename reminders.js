@@ -1,19 +1,25 @@
 const { EmbedBuilder } = require("discord.js");
 const supabase = require("./db");
 
-const REMINDER_CHANNEL = "1504225477760389251";
+// Tracking: Welcher User hat heute schon eine Reminder bekommen
+const remindersSentToday = new Map();
 
 async function checkAndSendReminders(client) {
   console.log("🔔 Prüfe Erinnerungen...");
   
   const now = new Date();
   
-  // Hole Channel
-  const channel = await client.channels.fetch(REMINDER_CHANNEL);
-  if (!channel) {
-    console.log("❌ Reminder Channel nicht gefunden!");
+  // Deutsche Zeit berechnen (UTC+1 Winter, UTC+2 Sommer)
+  const germanTime = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
+  const germanHour = germanTime.getHours();
+  
+  // Nur zwischen 20:00 und 20:59 deutsche Zeit senden
+  if (germanHour !== 20) {
+    console.log(`⏰ Nicht 20 Uhr (aktuell ${germanHour} Uhr deutsche Zeit), skip`);
     return;
   }
+  
+  const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
   
   // Hole alle User die einen Level-Eintrag haben
   const { data: users } = await supabase.from("levels").select("user_id");
@@ -21,6 +27,13 @@ async function checkAndSendReminders(client) {
   
   for (const u of users) {
     const uid = u.user_id;
+    
+    // Prüfe ob User heute schon Reminder bekommen hat
+    const lastSent = remindersSentToday.get(uid);
+    if (lastSent === today) {
+      // Heute schon gesendet, skip
+      continue;
+    }
     
     try {
       const user = await client.users.fetch(uid);
@@ -40,8 +53,8 @@ async function checkAndSendReminders(client) {
           // Verfügbar!
           const nextDay = dailyData.streak === 0 ? 1 : (dailyData.streak % 7) + 1;
           availableItems.push(`🎁 **Daily Reward Tag ${nextDay}** - Jetzt abholen!`);
-        } else if (diff >= 23) {
-          // Bald verfügbar (zwischen 23-24h)
+        } else if (diff >= 20) {
+          // Bald verfügbar (ab 20h anzeigen)
           const hoursLeft = Math.ceil(24 - diff);
           const minsLeft = Math.ceil((24 - diff) * 60) % 60;
           cooldownItems.push(`🎁 **Daily Reward** - Verfügbar in ${hoursLeft}h ${minsLeft}min`);
@@ -60,7 +73,7 @@ async function checkAndSendReminders(client) {
         if (diff >= 24) {
           // Verfügbar!
           availableItems.push(`🎰 **Daily Spin** - Nutze \`/betlabspin\`!`);
-        } else if (diff >= 23) {
+        } else if (diff >= 20) {
           // Bald verfügbar
           const hoursLeft = Math.ceil(24 - diff);
           const minsLeft = Math.ceil((24 - diff) * 60) % 60;
@@ -95,19 +108,22 @@ async function checkAndSendReminders(client) {
           
           if (diff <= 0) {
             // Investment bereit für Auszahlung (wird automatisch ausgezahlt)
-            availableProjects.push(inv.project);
+            if (!availableProjects.includes(inv.project)) {
+              availableProjects.push(inv.project);
+            }
             investmentReady = true;
-          } else if (diff <= 1) {
-            // Bald bereit
-            const minsLeft = Math.ceil(diff * 60);
+          } else if (diff <= 4) {
+            // Bald bereit (innerhalb 4h)
+            const hoursLeft = Math.floor(diff);
+            const minsLeft = Math.ceil((diff * 60) % 60);
             const projectName = inv.project === "shop" ? "🏪 SHOP" : inv.project === "fabrik" ? "🏭 FABRIK" : "💎 CASINO";
-            cooldownItems.push(`${projectName} Investment - Auszahlung in ${minsLeft}min`);
+            cooldownItems.push(`${projectName} Investment - Auszahlung in ${hoursLeft}h ${minsLeft}min`);
           }
         }
       }
       
       // ============ NUR SENDEN WENN WAS VERFÜGBAR IST ============
-      if (availableItems.length === 0 && !investmentReady) {
+      if (availableItems.length === 0 && cooldownItems.length === 0 && !investmentReady) {
         // Nichts verfügbar, skip
         continue;
       }
@@ -143,12 +159,16 @@ async function checkAndSendReminders(client) {
         .setTitle("🔔 ERINNERUNG - GRATIS BELOHNUNGEN!")
         .setDescription(desc)
         .setThumbnail(user.displayAvatarURL())
-        .setFooter({ text: "BetLab - Dein Gamification Bot" })
+        .setFooter({ text: "BetLab System" })
         .setTimestamp();
       
-      // Sende im Channel (User wird gementioned)
-      await channel.send({ content: `${user}`, embeds: [embed] });
-      console.log(`✅ Erinnerung an ${user.tag} im Channel gesendet (${availableItems.length} verfügbar)`);
+      // Sende DM
+      await user.send({ embeds: [embed] });
+      
+      // Markiere als heute gesendet
+      remindersSentToday.set(uid, today);
+      
+      console.log(`✅ Erinnerung an ${user.tag} per DM gesendet (${availableItems.length} verfügbar)`);
       
     } catch (e) {
       console.log(`⚠️ Konnte ${uid} nicht erreichen:`, e.message);
@@ -159,17 +179,26 @@ async function checkAndSendReminders(client) {
   }
 }
 
-// Alle 30 Minuten prüfen
+// Jede Stunde prüfen (sendet nur um 20 Uhr deutsche Zeit)
 function startReminderSystem(client) {
-  console.log("🔔 Erinnerungs-System gestartet");
+  console.log("🔔 Erinnerungs-System gestartet (täglich 20:00 Uhr deutsche Zeit)");
   
-  // Sofort einmal prüfen
+  // Sofort einmal prüfen beim Start
   checkAndSendReminders(client);
   
-  // Dann alle 30 Minuten
+  // Dann jede Stunde prüfen
   setInterval(() => {
     checkAndSendReminders(client);
-  }, 30 * 60 * 1000);
+  }, 60 * 60 * 1000); // Jede Stunde
+  
+  // Täglich um Mitternacht UTC: Map clearen für neuen Tag
+  setInterval(() => {
+    const now = new Date();
+    if (now.getUTCHours() === 0 && now.getUTCMinutes() < 60) {
+      remindersSentToday.clear();
+      console.log("🗑️ Reminder-Tracking für neuen Tag zurückgesetzt");
+    }
+  }, 60 * 60 * 1000);
 }
 
 module.exports = { startReminderSystem };
