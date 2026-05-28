@@ -5,21 +5,6 @@ const { log } = require("./logger");
 const TEAM_ROLE = "963870711678640188";
 const activeGiveaways = new Map();
 
-function parseDuration(str) {
-  // Parst "1h", "30m", "2d", "1d 12h" etc.
-  let totalMinutes = 0;
-  
-  const days = str.match(/(\d+)d/);
-  const hours = str.match(/(\d+)h/);
-  const mins = str.match(/(\d+)m/);
-  
-  if (days) totalMinutes += parseInt(days[1]) * 24 * 60;
-  if (hours) totalMinutes += parseInt(hours[1]) * 60;
-  if (mins) totalMinutes += parseInt(mins[1]);
-  
-  return totalMinutes;
-}
-
 function formatDuration(minutes) {
   const days = Math.floor(minutes / 60 / 24);
   const hours = Math.floor((minutes / 60) % 24);
@@ -41,17 +26,15 @@ async function startGiveaway(i) {
   
   const channel = i.options.getChannel("channel");
   const prize = i.options.getString("gewinn");
-  const duration = i.options.getString("dauer");
+  const durationMinutes = i.options.getInteger("dauer") ?? 60; // Standard: 60 Minuten
   
   // Prüfe Channel
   if (!channel.isTextBased()) {
     return i.reply({ content: "❌ Der Channel muss ein Text-Channel sein!", flags: 64 });
   }
   
-  // Parse Dauer
-  const durationMinutes = parseDuration(duration);
   if (durationMinutes <= 0) {
-    return i.reply({ content: "❌ Ungültige Dauer! Beispiele: `1h`, `30m`, `2d`, `1d 12h`", flags: 64 });
+    return i.reply({ content: "❌ Die Dauer muss mindestens 1 Minute betragen!", flags: 64 });
   }
   
   // Prüfe ob Gewinn Coins ist
@@ -115,7 +98,6 @@ async function autoDrawWinner(client, msg, giveawayData) {
   console.log("🎊 Auto-Ziehung läuft...");
   
   try {
-    // Hole Nachricht neu
     const channel = await client.channels.fetch(giveawayData.channelId);
     const message = await channel.messages.fetch(giveawayData.messageId);
     
@@ -126,7 +108,6 @@ async function autoDrawWinner(client, msg, giveawayData) {
 }
 
 async function drawWinner(msg, giveawayData, interactionUser = null, isAuto = false) {
-  // Hole Teilnehmer
   const reaction = msg.reactions.cache.get("✅");
   
   if (!reaction) {
@@ -156,7 +137,6 @@ async function drawWinner(msg, giveawayData, interactionUser = null, isAuto = fa
     return;
   }
   
-  // Gewinner ziehen
   const winner = participants.random();
   
   // Coins auszahlen
