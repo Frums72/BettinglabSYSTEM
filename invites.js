@@ -29,6 +29,16 @@ async function getAllUsers() {
   return data || [];
 }
 
+// ─── Atomare Increment/Decrement Funktionen (kein Race Condition) ─────────────
+
+async function incrementNormal(userId) {
+  await supabase.rpc("increment_normal_invites", { uid: userId });
+}
+
+async function decrementNormal(userId) {
+  await supabase.rpc("decrement_normal_invites", { uid: userId });
+}
+
 // ─── DB-persisted JoinTracker (survives bot restarts) ────────────────────────
 
 async function saveJoinTrack(memberId, inviterId, code) {
@@ -68,12 +78,10 @@ async function cacheInvites(guild) {
 async function handleJoin(member, client) {
   const guild = member.guild;
 
-  // WICHTIG: Alte Invites ZUERST speichern, BEVOR neue abgerufen werden
   const oldInvites = cache.get(guild.id);
   const newInvites = await guild.invites.fetch().catch(function() { return null; });
 
   if (!newInvites || !oldInvites) {
-    // Cache nur aktualisieren wenn Abruf erfolgreich war
     if (newInvites) {
       cache.set(guild.id, new Map(newInvites.map(function(i) { return [i.code, i.uses]; })));
     }
@@ -92,7 +100,7 @@ async function handleJoin(member, client) {
     if ((inv.uses || 0) > oldUses) used = inv;
   });
 
-  // JETZT erst Cache aktualisieren (nach Vergleich!)
+  // Cache aktualisieren (nach Vergleich!)
   cache.set(guild.id, new Map(newInvites.map(function(i) { return [i.code, i.uses]; })));
 
   if (!used || !used.inviter) {
@@ -108,16 +116,18 @@ async function handleJoin(member, client) {
   // In DB persistieren (Bot-Restart-sicher)
   await saveJoinTrack(member.id, inviterId, used.code);
 
-  // Invite +1
+  // ✅ Atomares Increment – kein Race Condition möglich
+  await incrementNormal(inviterId);
+
+  // Aktuellen Stand für den Log holen
   const inviterData = await getUser(inviterId);
-  await saveUser(inviterId, inviterData.normal + 1, inviterData.betlab);
 
   log(client, "JOIN",
     "Mitglied beigetreten",
     "Eingeladen: " + member.user.tag + " (" + member.id + ")\n" +
     "Einlader: " + used.inviter.tag + " (" + inviterId + ")\n" +
     "Code: " + used.code + "\n" +
-    "Einlader jetzt: " + (inviterData.normal + 1) + " Normal / " + inviterData.betlab + " Betlab",
+    "Einlader jetzt: " + inviterData.normal + " Normal / " + inviterData.betlab + " Betlab",
     used.inviter
   );
 }
@@ -142,10 +152,11 @@ async function handleLeave(member, client) {
   const joinedAt    = new Date(tracked.joined_at);
   const stayMinutes = Math.floor((Date.now() - joinedAt.getTime()) / 60000);
 
-  // Invite abziehen
+  // ✅ Atomares Decrement – kein Race Condition möglich
+  await decrementNormal(tracked.inviter_id);
+
+  // Aktuellen Stand für den Log holen
   const inviterData = await getUser(tracked.inviter_id);
-  const newNormal   = Math.max(0, inviterData.normal - 1);
-  await saveUser(tracked.inviter_id, newNormal, inviterData.betlab);
 
   log(client, "LEAVE",
     "Mitglied verlassen – Invite abgezogen",
@@ -153,7 +164,7 @@ async function handleLeave(member, client) {
     "Einlader ID: " + tracked.inviter_id + "\n" +
     "Code: " + tracked.code + "\n" +
     "Aufenthalt: " + stayMinutes + " Min\n" +
-    "Einlader danach: " + newNormal + " Normal / " + inviterData.betlab + " Betlab"
+    "Einlader danach: " + inviterData.normal + " Normal / " + inviterData.betlab + " Betlab"
   );
 }
 
