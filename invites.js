@@ -21,7 +21,10 @@ async function getUser(userId) {
 }
 
 async function saveUser(userId, normal, betlab) {
-  await supabase.from("invites").upsert({ user_id: userId, normal, betlab });
+  await supabase.from("invites").upsert(
+    { user_id: userId, normal, betlab },
+    { onConflict: "user_id" }
+  );
 }
 
 async function getAllUsers() {
