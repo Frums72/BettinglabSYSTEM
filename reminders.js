@@ -13,9 +13,9 @@ async function checkAndSendReminders(client) {
   const germanTime = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
   const germanHour = germanTime.getHours();
   
-  // Nur zwischen 20:00 und 20:59 deutsche Zeit senden
-  if (germanHour !== 20) {
-    console.log(`⏰ Nicht 20 Uhr (aktuell ${germanHour} Uhr deutsche Zeit), skip`);
+  // Nur zwischen 18:00 und 18:59 deutsche Zeit senden
+  if (germanHour !== 18) {
+    console.log(`⏰ Nicht 18 Uhr (aktuell ${germanHour} Uhr deutsche Zeit), skip`);
     return;
   }
   
@@ -179,9 +179,9 @@ async function checkAndSendReminders(client) {
   }
 }
 
-// Jede Stunde prüfen (sendet nur um 20 Uhr deutsche Zeit)
+// Jede Stunde prüfen (sendet nur um 18 Uhr deutsche Zeit)
 function startReminderSystem(client) {
-  console.log("🔔 Erinnerungs-System gestartet (täglich 20:00 Uhr deutsche Zeit)");
+  console.log("🔔 Erinnerungs-System gestartet (täglich 18:00 Uhr deutsche Zeit)");
   
   // Sofort einmal prüfen beim Start
   checkAndSendReminders(client);
