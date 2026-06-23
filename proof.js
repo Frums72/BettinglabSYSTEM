@@ -56,13 +56,27 @@ async function sendProofInfoMessage(client) {
 }
 
 async function handleProofCommand(i) {
+  console.log("🔍 Proof Command ausgelöst von:", i.user.tag, "in Channel:", i.channelId);
+  
+  // Channel prüfen
+  if (i.channelId !== PROOF_CHANNEL_ID) {
+    console.log("❌ Falscher Channel. Erwartet:", PROOF_CHANNEL_ID, "Bekommen:", i.channelId);
+    return i.reply({
+      content: `❌ Dieser Command funktioniert nur im <#${PROOF_CHANNEL_ID}> Channel!`,
+      flags: 64
+    });
+  }
+
   // Rolle prüfen
   if (!i.member.roles.cache.has(BETLAB_ROLE_ID)) {
+    console.log("❌ User hat BetLab Rolle nicht. Rolle ID:", BETLAB_ROLE_ID);
     return i.reply({
       content: "❌ Du brauchst die **BetLab Rolle** um Proofs zu posten!",
       flags: 64
     });
   }
+
+  console.log("✅ Alle Checks bestanden, poste Proof...");
 
   const proofText = i.options.getString("text");
   
