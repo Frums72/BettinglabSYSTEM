@@ -10,6 +10,7 @@ const {
 } = require("discord.js");
 
 const { log } = require("./logger");
+const supabase = require("./db");
 
 const CATEGORY_ID     = "1496997563637698580";
 const SUPPORT_ROLE_ID = "963870711678640188";
