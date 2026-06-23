@@ -29,18 +29,27 @@ async function sendProofInfoMessage(client) {
 
     const infoEmbed = new EmbedBuilder()
       .setColor(COLOR)
-      .setTitle("📸 BETLAB PROOF SYSTEM")
+      .setTitle("✅ BETLAB PROOF SYSTEM")
       .setDescription(
-        "**Willkommen im Proof Channel!**\n\n" +
-        "Hier kannst du deine BetLab Gewinne und Erfolge posten.\n\n" +
-        "**Wie es funktioniert:**\n" +
-        "1️⃣ Verwende `/betlabproof <dein text>`\n" +
-        "2️⃣ Beschreibe deinen Gewinn oder deine Aktion\n" +
-        "3️⃣ Optional: Hänge einen Screenshot an\n" +
-        "4️⃣ Dein Proof wird als schöne Embed-Nachricht gepostet\n\n" +
-        "**Beispiel:** `/betlabproof Gewonnen beim Blackjack: 500 Coins!`\n\n" +
-        "💡 Nur User mit der **BetLab Rolle** können Proofs posten!\n" +
-        "✨ Alle Proofs werden automatisch mit Datum & Uhrzeit gestempelt"
+        "Willkommen im Proof Channel!\n\n" +
+        "Hier können Mitglieder ihre Einzahlungen/Auszahlungen teilen, um für Transparenz zu sorgen und zu zeigen, dass wir legitim sind.\n\n" +
+        "📌 **So funktioniert's:**\n" +
+        "Verwende den Befehl:\n" +
+        "`/betlabproof <dein Text>`\n\n" +
+        "**Beschreibe:**\n" +
+        "• Deinen Gewinn\n" +
+        "• Deine Auszahlung\n" +
+        "• Deine Erfahrung mit BetLab\n\n" +
+        "**Optional:**\n" +
+        "📸 Füge einen Screenshot als Nachweis hinzu.\n" +
+        "Dein Proof wird automatisch als übersichtliche Embed-Nachricht veröffentlicht.\n\n" +
+        "💬 **Beispiel:**\n" +
+        "`/betlabproof 50€ Promo erhalten.`\n\n" +
+        "⚠️ **Wichtig:**\n" +
+        "• Nur Mitglieder mit der BetLab-Rolle können Proofs posten.\n" +
+        "• Alle Proofs werden automatisch mit Datum & Uhrzeit versehen.\n" +
+        "• Fake-Proofs oder Missbrauch werden entfernt.\n\n" +
+        "Vielen Dank für eure Unterstützung und viel Erfolg bei BetLab! 🍀"
       )
       .setThumbnail(IMAGE)
       .setFooter({ text: "BetLab Proof System" })
@@ -89,20 +98,19 @@ async function handleProofCommand(i) {
   // Proof Embed
   const proofEmbed = new EmbedBuilder()
     .setColor(0x57F287)
-    .setTitle("✅ NEUER PROOF!")
-    .setDescription(proofText)
+    .setTitle("⭐️⭐️⭐️⭐️⭐️")
+    .setDescription(
+      `${proofText}\n\n` +
+      `📅 Datum\n${date}\n\n` +
+      `🕞 Uhrzeit\n${time}\n\n` +
+      `👤 User\n<@${i.user.id}>`
+    )
     .setAuthor({
       name: i.user.username,
       iconURL: i.user.displayAvatarURL()
     })
-    .addFields(
-      { name: "📅 Datum", value: date, inline: true },
-      { name: "🕐 Uhrzeit", value: time, inline: true },
-      { name: "👤 User", value: `<@${i.user.id}>`, inline: true }
-    )
     .setThumbnail(i.user.displayAvatarURL())
-    .setFooter({ text: "BetLab Proof System" })
-    .setTimestamp();
+    .setFooter({ text: `BetLab Proof System | heute um ${time} Uhr` });
 
   // Attachments prüfen (Slice-Objekte von Discord können nicht direkt verwendet werden)
   const files = [];
