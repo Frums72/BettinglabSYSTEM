@@ -162,11 +162,14 @@ async function postDailyQuests(client) {
   const ch = client.channels.cache.get(DAILY_CHANNEL) || await client.channels.fetch(DAILY_CHANNEL);
   if (!ch) return;
   
-  // Channel leeren vor neuem Post
+  // Channel leeren vor neuem Post (optional, Fehler ignorieren)
   try {
     const msgs = await ch.messages.fetch({ limit: 100 });
-    await ch.bulkDelete(msgs, true);
-  } catch(e) { console.log("⚠️ Konnte Channel nicht leeren:", e.message); }
+    if (msgs.size > 0) await ch.bulkDelete(msgs, true);
+  } catch(e) { 
+    console.log("⚠️ Konnte Channel nicht leeren:", e.message);
+    // Continue anyway - Daily Quest wird trotzdem gesendet
+  }
   
   // Countdown bis Mitternacht (UTC)
   const now = new Date();
@@ -363,7 +366,7 @@ async function handleQuestClaim(i, client) {
     const pTable = type === "daily" ? "daily_quest_progress" : "weekly_quest_progress";
     
     const { data: q } = await supabase.from(table).select("*").eq("id", questId).single();
-    const { data: p } = await supabase.from(pTable).select("*").eq("user_id", i.user.id).eq("quest_id", questId).single();
+    const { data: p } = await supabase.from(pTable).select("*").eq("user_id", i.user.id).eq("quest_id", questId).maybeSingle();
     
     if (!p || !p.completed || p.claimed) return i.reply({ content: "❌ Quest nicht verfügbar!", flags: 64 });
     
