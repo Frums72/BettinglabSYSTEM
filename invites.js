@@ -417,7 +417,6 @@ async function handleCommand(i, client) {
   const name = i.commandName;
   if (name === "betlabhelp")             { betlabhelp(i);             return true; }
   if (name === "betlabinvites")          { betlabinvites(i);          return true; }
-  if (name === "betlabranking")          { betlabranking(i);          return true; }
   if (name === "betlabsendbetlab")       { betlabsendbetlab(i);       return true; }
   if (name === "betlabinvitesedit")      { betlabinvitesedit(i);      return true; }
   if (name === "betlabinviteclear")      { betlabinviteclear(i);      return true; }

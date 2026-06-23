@@ -294,7 +294,33 @@ async function handleInteraction(i, client) {
       );
     }
 
-    log(client, "TICKET", "Ticket geschlossen", "Channel: " + i.channel.name + "\nGeschlossen von: " + closedBy, i.user);
+    // DM an Übernehmer (claimer) senden
+    if (d.claimedBy && d.claimedBy !== i.user.id) {
+      try {
+        const claimer = await client.users.fetch(d.claimedBy);
+        await claimer.send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(0xED4245)
+              .setTitle("🔒 Ticket geschlossen")
+              .setDescription(
+                "Ein Ticket das du übernommen hattest wurde geschlossen.\n\n" +
+                "🎫 Ticket: " + i.channel.name + "\n" +
+                "👤 Geschlossen von: " + closedBy + "\n" +
+                "🕞 Zeitpunkt: " + closedAt
+              )
+          ]
+        });
+      } catch(e) { /* User hat DMs deaktiviert */ }
+    }
+
+    log(client, "TICKET", "Ticket geschlossen",
+      "Channel: " + i.channel.name +
+      "\nErstellt von: " + d.creator +
+      "\nÜbernommen von: " + (d.claimedBy ? "<@" + d.claimedBy + ">" : "niemand") +
+      "\nGeschlossen von: " + closedBy,
+      i.user
+    );
 
     userTickets.delete(d.creator);
     tickets.delete(i.channel.id);

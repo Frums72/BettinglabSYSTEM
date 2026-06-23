@@ -6,7 +6,8 @@ const JACKPOT_CHANNEL = "1505213996276645980";
 
 // Berechne Steuer (1% aufgerundet)
 function calculateTax(amount) {
-  return Math.ceil(amount * 0.01);
+  const tax = Math.ceil(amount * 0.01);
+  return Math.max(1, tax);
 }
 
 // Füge Steuer zum Jackpot hinzu

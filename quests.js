@@ -162,6 +162,12 @@ async function postDailyQuests(client) {
   const ch = client.channels.cache.get(DAILY_CHANNEL) || await client.channels.fetch(DAILY_CHANNEL);
   if (!ch) return;
   
+  // Channel leeren vor neuem Post
+  try {
+    const msgs = await ch.messages.fetch({ limit: 100 });
+    await ch.bulkDelete(msgs, true);
+  } catch(e) { console.log("⚠️ Konnte Channel nicht leeren:", e.message); }
+  
   // Countdown bis Mitternacht (UTC)
   const now = new Date();
   const tomorrow = new Date(now);
@@ -193,6 +199,12 @@ async function postWeeklyQuests(client) {
   
   const ch = client.channels.cache.get(DAILY_CHANNEL) || await client.channels.fetch(DAILY_CHANNEL);
   if (!ch) return;
+  
+  // Channel leeren vor neuem Post
+  try {
+    const msgs = await ch.messages.fetch({ limit: 100 });
+    await ch.bulkDelete(msgs, true);
+  } catch(e) { console.log("⚠️ Konnte Channel nicht leeren:", e.message); }
   
   // Countdown bis nächsten Montag 00:00 UTC
   const now = new Date();

@@ -23,6 +23,12 @@ async function postDailyRewards(client) {
   const ch = client.channels.cache.get(CHANNEL_ID) || await client.channels.fetch(CHANNEL_ID);
   if (!ch) return;
   
+  // Channel leeren vor neuem Post
+  try {
+    const msgs = await ch.messages.fetch({ limit: 100 });
+    await ch.bulkDelete(msgs, true);
+  } catch(e) { console.log("⚠️ Konnte Daily Rewards Channel nicht leeren:", e.message); }
+  
   let desc = "Hole dir jeden Tag deine Belohnung ab!\n**Verpasse keinen Tag - nach 24h ohne Claim startet die Serie neu!**\n\n";
   
   for (const r of DAILY_REWARDS) {

@@ -6,6 +6,7 @@ const remindersSentToday = new Map();
 
 async function checkAndSendReminders(client) {
   console.log("🔔 Prüfe Erinnerungen...");
+  let sentCount = 0;
   
   const now = new Date();
   
@@ -13,7 +14,7 @@ async function checkAndSendReminders(client) {
   const germanTime = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
   const germanHour = germanTime.getHours();
   
-  // Nur zwischen 18:00 und 18:59 deutsche Zeit senden
+  // Nur zwischen 19:00 und 19:59 deutsche Zeit senden
   if (germanHour !== 18) {
     console.log(`⏰ Nicht 18 Uhr (aktuell ${germanHour} Uhr deutsche Zeit), skip`);
     return;
@@ -169,6 +170,7 @@ async function checkAndSendReminders(client) {
       remindersSentToday.set(uid, today);
       
       console.log(`✅ Erinnerung an ${user.tag} per DM gesendet (${availableItems.length} verfügbar)`);
+      sentCount++;
       
     } catch (e) {
       console.log(`⚠️ Konnte ${uid} nicht erreichen:`, e.message);
@@ -177,6 +179,15 @@ async function checkAndSendReminders(client) {
     // 1 Sekunde warten zwischen Messages
     await new Promise(r => setTimeout(r, 1000));
   }
+  
+  // Log in Channel senden
+  if (sentCount > 0) {
+    try {
+      const { log } = require("./logger");
+      log(client, "INFO", "Erinnerungen gesendet", `18:00 Uhr Reminder verschickt\nEmpfänger: ${sentCount} User`);
+    } catch(e) { console.error("Log Fehler:", e.message); }
+  }
+  console.log(`🔔 Reminder fertig: ${sentCount} DMs gesendet`);
 }
 
 // Jede Stunde prüfen (sendet nur um 18 Uhr deutsche Zeit)
