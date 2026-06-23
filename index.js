@@ -21,6 +21,7 @@ const { startLeaderboardSystem } = require("./leaderboard");
 const { handleCommand: handleModCommand } = require("./moderation");
 const { postDailyRewards, handleDailyButton } = require("./dailyrewards");
 const { postDailyQuests, postWeeklyQuests, handleQuestButton, handleQuestClaim } = require("./quests");
+const { handleProofCommand, sendProofInfoMessage } = require("./proof");
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -173,7 +174,11 @@ const commands = [
         { name: "Invites", value: "invites" },
         { name: "Coins", value: "coins" },
         { name: "XP/Level", value: "xp" }
-      ))
+      )),
+  new SlashCommandBuilder()
+    .setName("betlabproof")
+    .setDescription("Poste einen Proof deiner Gewinne!")
+    .addStringOption(o => o.setName("text").setDescription("Dein Proof Text").setRequired(true))
   
 ].map(c => c.toJSON());
 
@@ -239,6 +244,9 @@ client.once("clientReady", async function() {
   
   // Investment System starten
   startInvestmentSystem(client);
+  
+  // Proof Info Message senden
+  sendProofInfoMessage(client);
 });
 
 client.on("guildCreate", async function(guild) {
@@ -277,6 +285,9 @@ client.on("interactionCreate", async function(i) {
     if (i.isChatInputCommand()) {
       // Embed Builder
       if (i.commandName === "betlabsend") return startEmbedBuilder(i);
+      
+      // Proof Command
+      if (i.commandName === "betlabproof") return handleProofCommand(i);
       
       // Invite Commands
       const inviteHandled = await handleInviteCommand(i, client);
