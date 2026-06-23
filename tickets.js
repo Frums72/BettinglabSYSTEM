@@ -158,12 +158,30 @@ async function handleInteraction(i, client) {
 
     const category = i.values[0];
     
-    // Zähle bestehende Tickets dieser Kategorie für fortlaufende Nummer
+    // Hole oder erstelle Counter für diese Kategorie
     const categoryPrefix = category.toLowerCase().replace(" ", "-").replace("bug report", "bug");
-    const existingChannels = i.guild.channels.cache.filter(ch => 
-      ch.parentId === CATEGORY_ID && ch.name.startsWith(categoryPrefix + "-")
-    );
-    const ticketNumber = existingChannels.size + 1;
+    const { data: counterData } = await supabase
+      .from("ticket_counters")
+      .select("*")
+      .eq("category", categoryPrefix)
+      .single();
+    
+    let ticketNumber = 1;
+    if (counterData) {
+      ticketNumber = counterData.next_number;
+    } else {
+      // Erste Kategorie - erstelle Counter
+      await supabase.from("ticket_counters").insert({
+        category: categoryPrefix,
+        next_number: 2
+      });
+    }
+    
+    // Erhöhe Counter
+    await supabase.from("ticket_counters").update({
+      next_number: ticketNumber + 1
+    }).eq("category", categoryPrefix);
+    
     const safeName = (categoryPrefix + "-" + ticketNumber).slice(0, 100);
 
     const channel = await i.guild.channels.create({
