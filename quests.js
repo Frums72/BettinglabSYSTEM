@@ -215,12 +215,6 @@ async function postWeeklyQuests(client) {
     }
   } catch(e) { console.log("⚠️ Weekly-Check Fehler:", e.message); }
   
-  // Channel leeren vor neuem Post
-  try {
-    const msgs = await ch.messages.fetch({ limit: 100 });
-    await ch.bulkDelete(msgs, true);
-  } catch(e) { console.log("⚠️ Konnte Channel nicht leeren:", e.message); }
-  
   // Countdown bis nächsten Montag 00:00 UTC
   const now = new Date();
   const nextMonday = new Date(now);
