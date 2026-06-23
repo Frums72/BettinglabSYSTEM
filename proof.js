@@ -104,17 +104,12 @@ async function handleProofCommand(i) {
     .setFooter({ text: "BetLab Proof System" })
     .setTimestamp();
 
-  // Attachments prüfen
+  // Attachments prüfen (Slice-Objekte von Discord können nicht direkt verwendet werden)
   const files = [];
-  if (i.attachments.size > 0) {
-    for (const [, attachment] of i.attachments) {
-      files.push(attachment);
-    }
-    proofEmbed.addFields({
-      name: "📸 Anhänge",
-      value: `${i.attachments.size} Datei(en) angehängt`,
-      inline: false
-    });
+  if (i.options._unparsed && i.options._unparsed.length > 0) {
+    // Attachments sind part der Nachricht, nicht des Commands
+    // Bei Slash Commands müssen Files über andere Wege hinzugefügt werden
+    // Momentan: nur Text
   }
 
   // In Proof Channel posten
@@ -128,8 +123,7 @@ async function handleProofCommand(i) {
 
   try {
     const proofMsg = await ch.send({
-      embeds: [proofEmbed],
-      files: files.length > 0 ? files : undefined
+      embeds: [proofEmbed]
     });
 
     // React für Engagement
