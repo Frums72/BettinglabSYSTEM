@@ -21,6 +21,7 @@ const { startLeaderboardSystem } = require("./leaderboard");
 const { handleCommand: handleModCommand } = require("./moderation");
 const { postDailyRewards, handleDailyButton } = require("./dailyrewards");
 const { postDailyQuests, postWeeklyQuests, handleQuestButton, handleQuestClaim } = require("./quests");
+const { startBumpReminder, handleBumpButton } = require("./bump");
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -239,6 +240,9 @@ client.once("clientReady", async function() {
   
   // Investment System starten
   startInvestmentSystem(client);
+  
+  // Bump Reminder System starten
+  startBumpReminder(client);
 });
 
 client.on("guildCreate", async function(guild) {
@@ -334,6 +338,12 @@ client.on("interactionCreate", async function(i) {
     // Giveaway Draw Button
     if (i.customId === "giveaway_draw") {
       await handleGiveawayDraw(i);
+      return;
+    }
+    
+    // Bump Button
+    if (i.customId === "bump_done") {
+      await handleBumpButton(i);
       return;
     }
     
