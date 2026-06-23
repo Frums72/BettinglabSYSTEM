@@ -31,7 +31,7 @@ async function restoreTickets(guild, client) {
     category.children.cache.forEach(function(channel) {
       // Nur Text-Channels die mit "ticket-" beginnen
       if (channel.type !== ChannelType.GuildText) return;
-      if (!channel.name.startsWith("ticket-")) return;
+      if (!channel.name.match(/^(support|promo|bewerbung|bug)-\d+$/)) return;
 
       // Creator aus Permissions extrahieren
       const permissions = channel.permissionOverwrites.cache;
@@ -157,7 +157,14 @@ async function handleInteraction(i, client) {
     }
 
     const category = i.values[0];
-    const safeName = ("ticket-" + category.toLowerCase() + "-" + i.user.username).slice(0, 100);
+    
+    // Zähle bestehende Tickets dieser Kategorie für fortlaufende Nummer
+    const categoryPrefix = category.toLowerCase().replace(" ", "-").replace("bug report", "bug");
+    const existingChannels = i.guild.channels.cache.filter(ch => 
+      ch.parentId === CATEGORY_ID && ch.name.startsWith(categoryPrefix + "-")
+    );
+    const ticketNumber = existingChannels.size + 1;
+    const safeName = (categoryPrefix + "-" + ticketNumber).slice(0, 100);
 
     const channel = await i.guild.channels.create({
       name: safeName,

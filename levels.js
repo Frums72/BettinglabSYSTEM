@@ -254,7 +254,7 @@ async function betlabcf(i, client) {
   let netWin = amt;
   if (won) {
     tax = await applyTax(i.user.id, amt, "coinflip", client);
-    netWin = amt - tax;
+    netWin = Math.max(1, amt - tax);
   }
   
   const newC=won?d.coins+netWin:d.coins-amt;
@@ -491,7 +491,7 @@ async function betlabdice(i, client) {
   let netWin = winAmount;
   if (won) {
     tax = await applyTax(i.user.id, winAmount, "dice", client);
-    netWin = winAmount - tax;
+    netWin = Math.max(1, winAmount - tax);
   }
   
   const newC=won?d.coins+netWin:d.coins-amt;
@@ -744,7 +744,7 @@ async function bjBlackjack(i,playerHand,dealerHand,bet,d){
   
   // Steuer berechnen
   const tax = await applyTax(i.user.id, winAmount - bet, "blackjack", i.client);
-  const netWin = (winAmount - bet) - tax;
+  const netWin = Math.max(1, (winAmount - bet) - tax);
   const newC=d.coins+netWin;
   
   await saveUser(i.user.id,d.xp,d.level,newC,d.total_xp,d.xp_boost,d.xp_boost_until);
@@ -806,7 +806,7 @@ async function bjResolve(i,playerHand,dealerHand,bet,coins){
     
     // Steuer berechnen
     tax = await applyTax(i.user.id, bet, "blackjack", i.client);
-    netWin = bet - tax;
+    netWin = Math.max(1, bet - tax);
     newC=coins+netWin;
     
     // XP Bonus bei Gewinn

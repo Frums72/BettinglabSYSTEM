@@ -218,17 +218,12 @@ client.once("clientReady", async function() {
       console.error("❌ Daily Quests Fehler:", e);
     }
 
-    // Weekly Quests nur montags posten
-    const dayOfWeek = new Date().getUTCDay();
-    if (dayOfWeek === 1) {
-      try {
-        await postWeeklyQuests(client);
-        console.log("✅ Weekly Quests gepostet");
-      } catch(e) {
-        console.error("❌ Weekly Quests Fehler:", e);
-      }
-    } else {
-      console.log("⏭️ Weekly Quests: nicht Montag, überspringe");
+    // Weekly Quests immer posten (postWeeklyQuests prüft selbst ob nötig)
+    try {
+      await postWeeklyQuests(client);
+      console.log("✅ Weekly Quests gepostet");
+    } catch(e) {
+      console.error("❌ Weekly Quests Fehler:", e);
     }
   } else {
     console.log("⚠️ Posts bereits gemacht, überspringe...");

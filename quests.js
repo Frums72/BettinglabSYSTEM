@@ -200,6 +200,21 @@ async function postWeeklyQuests(client) {
   const ch = client.channels.cache.get(DAILY_CHANNEL) || await client.channels.fetch(DAILY_CHANNEL);
   if (!ch) return;
   
+  // Prüfen ob diese Woche schon eine Weekly Quest gepostet wurde
+  try {
+    const msgs = await ch.messages.fetch({ limit: 20 });
+    const sixDaysAgo = Date.now() - (6 * 24 * 60 * 60 * 1000);
+    const weeklyExists = msgs.some(m => 
+      m.author.bot && m.embeds.length > 0 && 
+      m.embeds[0].title && m.embeds[0].title.includes("WEEKLY") &&
+      m.createdTimestamp > sixDaysAgo
+    );
+    if (weeklyExists) {
+      console.log("⏭️ Weekly Quest bereits diese Woche gepostet, überspringe");
+      return;
+    }
+  } catch(e) { console.log("⚠️ Weekly-Check Fehler:", e.message); }
+  
   // Channel leeren vor neuem Post
   try {
     const msgs = await ch.messages.fetch({ limit: 100 });
