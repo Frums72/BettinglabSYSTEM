@@ -638,8 +638,9 @@ async function betlabblackjack(i, client) {
 }
 
 async function handleBlackjackButton(i,client){
+  await i.deferUpdate().catch(()=>{});
   const game=bjGames.get(i.user.id);
-  if(!game)return await i.reply({content:"❌ Kein aktives Spiel!",flags:64});
+  if(!game)return await i.followUp({content:"❌ Kein aktives Spiel!",flags:64});
   
   const{playerHand,dealerHand,bet,coins}=game;
   
@@ -669,13 +670,13 @@ async function handleBlackjackButton(i,client){
       new ButtonBuilder().setCustomId("bj_stand").setLabel("✋ STAND").setStyle(ButtonStyle.Danger)
     );
     
-    return await i.update({embeds:[embed],components:[row]});
+    return await i.editReply({embeds:[embed],components:[row]});
   }
   
   if(i.customId==="bj_double"){
     // Check genug Coins
     if(coins<bet*2){
-      return await i.reply({content:"❌ Nicht genug Coins zum Verdoppeln!",flags:64});
+      return await i.followUp({content:"❌ Nicht genug Coins zum Verdoppeln!",flags:64});
     }
     
     // Verdoppel Einsatz, ziehe 1 Karte, dann Stand
@@ -720,7 +721,7 @@ async function handleBlackjackButton(i,client){
       .setFooter({text:"50% zurück - Nächstes Mal!"});
     
     log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: SURRENDER\nZurück: ${returnAmount}\nBalance: ${newC}`,i.user);
-    await i.update({embeds:[embed],components:[]});
+    await i.editReply({embeds:[embed],components:[]});
     bjGames.delete(i.user.id);
     return;
   }
@@ -789,7 +790,7 @@ async function bjBust(i,playerHand,dealerHand,bet,coins){
     .setFooter({text:"Über 21! Nächstes Mal!"});
   
   log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: BUST\nBalance: ${newC}`,i.user);
-  return await i.update({embeds:[embed],components:[]});
+  return await i.editReply({embeds:[embed],components:[]});
 }
 
 async function bjResolve(i,playerHand,dealerHand,bet,coins){
@@ -860,7 +861,7 @@ async function bjResolve(i,playerHand,dealerHand,bet,coins){
     .setFooter({text:result==="WIN"?"Glückwunsch! 🍀":result==="PUSH"?"Kein Gewinner!":"Nächstes Mal klappt's!"});
   
   log(i.client,"INFO","Blackjack",`User: ${i.user.tag}\nEinsatz: ${bet}\nErgebnis: ${result}${bonusXP>0?`\nBonus: ${bonusXP} XP`:''}\nBalance: ${newC}`,i.user);
-  return await i.update({embeds:[embed],components:[]});
+  return await i.editReply({embeds:[embed],components:[]});
 }
 
 
@@ -909,8 +910,9 @@ async function betlabhighlow(i, client) {
 }
 
 async function handleHighLowButton(i, client) {
+  await i.deferUpdate().catch(()=>{});
   const game = hlGames.get(i.user.id);
-  if(!game) return await i.reply({content: "❌ Kein aktives Spiel!", flags: 64});
+  if(!game) return await i.followUp({content: "❌ Kein aktives Spiel!", flags: 64});
   
   const {bet, coins, round, currentNum, history} = game;
   
@@ -959,7 +961,7 @@ async function handleHighLowButton(i, client) {
       .setFooter({text: `${round} Runden gemeistert! 🍀`});
     
     log(i.client, "INFO", "HighLow", `User: ${i.user.tag}\nEinsatz: ${bet}\nRunden: ${round}\nGewinn: ${winAmount}\nBalance: ${newC}`, i.user);
-    await i.update({embeds: [embed], components: []});
+    await i.editReply({embeds: [embed], components: []});
     hlGames.delete(i.user.id);
     return;
   }
@@ -1099,8 +1101,9 @@ async function betlabrace(i, client) {
 }
 
 async function handleRaceButton(i, client) {
+  await i.deferUpdate().catch(()=>{});
   const game = raceGames.get(i.user.id);
-  if(!game) return await i.reply({content: "❌ Kein aktives Rennen!", flags: 64});
+  if(!game) return await i.followUp({content: "❌ Kein aktives Rennen!", flags: 64});
   
   const choice = parseInt(i.customId.split("_")[1]);
   const selected = RACE_ANIMALS[choice - 1];

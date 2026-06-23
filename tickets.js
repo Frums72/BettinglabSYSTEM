@@ -316,11 +316,23 @@ async function handleInteraction(i, client) {
 
     log(client, "TICKET", "Ticket geschlossen",
       "Channel: " + i.channel.name +
-      "\nErstellt von: " + d.creator +
+      "\nErstellt von: <@" + d.creator + ">" +
       "\nÜbernommen von: " + (d.claimedBy ? "<@" + d.claimedBy + ">" : "niemand") +
       "\nGeschlossen von: " + closedBy,
       i.user
     );
+
+    // Transcript auch in Log Channel senden
+    try {
+      const LOG_CHANNEL_ID = "963870194172829696";
+      const logCh = client.channels.cache.get(LOG_CHANNEL_ID) || await client.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+      if (logCh) {
+        await logCh.send({
+          content: "📄 **Ticket Transcript** - " + i.channel.name,
+          files: [file]
+        });
+      }
+    } catch(e) { console.log("⚠️ Transcript Log Fehler:", e.message); }
 
     userTickets.delete(d.creator);
     tickets.delete(i.channel.id);
